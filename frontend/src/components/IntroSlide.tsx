@@ -45,7 +45,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 				variants={containerVariants}
 				initial="hidden"
 				animate="visible"
-				className="z-10 flex flex-col items-center gap-8 max-w-md w-full pointer-events-auto"
+				className="relative z-10 flex flex-col items-center gap-8 max-w-md w-full pointer-events-auto"
 			>
 				<motion.h1
 					variants={itemVariants}

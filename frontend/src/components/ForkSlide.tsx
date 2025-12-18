@@ -45,7 +45,7 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 				<CurrencyRain density={40} />
 			</div>
 			{/* Header with title and back button */}
-<div className="absolute top-4 left-4 z-10 pointer-events-auto">
+			<div className="absolute top-4 left-4 z-10 pointer-events-auto">
 			<motion.button
 				whileHover={{ x: -4 }}
 				whileTap={{ scale: 0.95 }}
@@ -60,12 +60,12 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 				initial={{ opacity: 0, y: -20 }}
 				animate={{ opacity: 1, y: 0 }}
 				transition={{ duration: 0.7, ease: "easeOut" }}
-				className="text-3xl font-bold text-center"
+				className="relative z-10 text-3xl font-bold text-center"
 			>
 				What's your vice?
 			</motion.h2>
 
-			<div className="flex flex-col md:flex-row gap-4 w-full max-w-2xl pointer-events-auto">
+			<div className="relative z-10 flex flex-col md:flex-row gap-4 w-full max-w-2xl pointer-events-auto">
 				<motion.button
 					custom={0}
 					variants={cardVariants}
