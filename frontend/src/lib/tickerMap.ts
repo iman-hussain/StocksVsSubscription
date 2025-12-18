@@ -417,6 +417,26 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
     { name: 'Gaming Mouse', ticker: 'LOGI', rtp: 79, releaseDate: '2023-01-01', aliases: ['mouse', 'gaming mouse', 'wireless mouse'] },
     { name: 'Streaming Stick', ticker: 'ROKU', rtp: 49, releaseDate: '2021-09-20', aliases: ['roku', 'firestick', 'streaming dongle'] },
 
+    // --- Vehicles ---
+    // Hyundai
+    { name: 'Hyundai i40 Estate', ticker: 'HYMTF', rtp: 28000, releaseDate: '2011-09-01', aliases: ['hyundai i40', 'i40 estate', 'i40 tourer', 'i40'] },
+
+    // Honda
+    { name: 'Honda Civic 2014', ticker: 'HMC', rtp: 18390, releaseDate: '2014-01-08', aliases: ['civic 2014', '2014 civic', 'honda civic'] },
+
+    // Toyota
+    { name: 'Toyota Camry', ticker: 'TM', rtp: 26420, releaseDate: '2023-11-01', aliases: ['camry', 'toyota camry'] },
+
+    // Tesla (S3XY + Cybertruck)
+    { name: 'Tesla Model S', ticker: 'TSLA', rtp: 74990, releaseDate: '2012-06-22', aliases: ['model s', 'tesla model s'] },
+    { name: 'Tesla Model 3', ticker: 'TSLA', rtp: 38990, releaseDate: '2017-07-28', aliases: ['model 3', 'tesla model 3'] },
+    { name: 'Tesla Model X', ticker: 'TSLA', rtp: 79990, releaseDate: '2015-09-29', aliases: ['model x', 'tesla model x'] },
+    { name: 'Tesla Model Y', ticker: 'TSLA', rtp: 43990, releaseDate: '2020-03-13', aliases: ['model y', 'tesla model y'] },
+    { name: 'Tesla Cybertruck', ticker: 'TSLA', rtp: 79990, releaseDate: '2023-11-30', aliases: ['cybertruck', 'tesla cybertruck', 'cyber truck'] },
+
+    // Ford
+    { name: 'Ford F-150', ticker: 'F', rtp: 36570, releaseDate: '2023-09-12', aliases: ['f150', 'ford f150', 'f-150'] },
+
     // --- Fallback/Generic ---
     { name: 'Laptop', ticker: 'DELL', rtp: 999, releaseDate: '2023-01-01', aliases: ['laptop', 'computer', 'pc'] },
     { name: 'Desktop PC', ticker: 'DELL', rtp: 1499, releaseDate: '2023-01-01', aliases: ['desktop', 'pc', 'desktop pc', 'gaming pc'] },
