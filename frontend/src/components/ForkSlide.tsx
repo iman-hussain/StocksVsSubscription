@@ -41,7 +41,7 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 			exit={{ opacity: 0 }}
 			className="h-dvh w-full flex flex-col items-center justify-center p-6 gap-8 relative isolate overflow-hidden"
 		>
-			<div className="absolute inset-0 z-0">
+			<div className="absolute inset-0">
 				<CurrencyRain density={40} />
 			</div>
 			{/* Header with title and back button */}

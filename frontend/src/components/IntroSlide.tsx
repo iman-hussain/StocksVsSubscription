@@ -37,7 +37,8 @@ export const IntroSlide = ({ onNext }: Props) => {
 			exit={{ opacity: 0 }}
 			className="h-dvh w-full flex flex-col items-center justify-center relative isolate overflow-hidden p-6 text-center"
 		>
-			<div className="absolute inset-0 z-0">
+            {/* Rain handles its own Z-index (-1) and pointer-events (none) */}
+			<div className="absolute inset-0">
 				<CurrencyRain density={40} />
 			</div>
 

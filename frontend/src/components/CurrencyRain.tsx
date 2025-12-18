@@ -245,12 +245,15 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
     rafRef.current = requestAnimationFrame(draw);
 
     const updatePointer = (clientX: number, clientY: number) => {
-      const rect = canvas.getBoundingClientRect();
+      // FIX: Ensure canvas exists before calculating
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
       pointerRef.current.x = clientX - rect.left;
       pointerRef.current.y = clientY - rect.top;
       pointerRef.current.active = true;
     };
 
+    // FIX: Attach listeners to WINDOW so we can use pointer-events: none on canvas
     const onPointerMove = (e: PointerEvent) => updatePointer(e.clientX, e.clientY);
     const onPointerDown = (e: PointerEvent) => {
       updatePointer(e.clientX, e.clientY);
@@ -260,6 +263,7 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
       pointerRef.current.down = false;
     };
     const onPointerLeave = () => {
+        // For window listeners, this might trigger when leaving the window
       pointerRef.current.down = false;
       pointerRef.current.active = false;
     };
@@ -281,32 +285,37 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
     };
 
     window.addEventListener('resize', resize);
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointerleave', onPointerLeave);
-    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
-    canvas.addEventListener('touchmove', onTouchMove, { passive: true });
-    canvas.addEventListener('touchend', onTouchEnd);
-    canvas.addEventListener('touchcancel', onTouchEnd);
+    // Use window for pointer events to allow click-through
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerup', onPointerUp);
+    // document.addEventListener('pointerleave', onPointerLeave); // Optional for window
+
+    // Keep touch on window as well for consistency
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', resize);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointerleave', onPointerLeave);
-      canvas.removeEventListener('touchstart', onTouchStart);
-      canvas.removeEventListener('touchmove', onTouchMove);
-      canvas.removeEventListener('touchend', onTouchEnd);
-      canvas.removeEventListener('touchcancel', onTouchEnd);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerup', onPointerUp);
+      // window.removeEventListener('pointerleave', onPointerLeave);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
     };
   }, [density, createDrop, computeTargetCount, speedFactor]);
 
+  // FIX: pointer-events-none ensures clicks pass through to buttons
+  // FIX: zIndex: -1 forces it behind everything
   return (
-    <div className="absolute inset-0 pointer-events-auto select-none">
-      <canvas ref={canvasRef} className="w-full h-full cursor-auto" />
+    <div className="absolute inset-0 pointer-events-none select-none" style={{ zIndex: -1 }}>
+      <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );
 }
