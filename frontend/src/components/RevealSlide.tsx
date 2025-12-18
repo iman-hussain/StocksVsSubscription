@@ -14,15 +14,16 @@ interface Props {
 }
 
 const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult }) => {
-	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result.currency });
+	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result!.currency });
 
 	return (
 		<motion.div
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
 			transition={{ duration: 0.8, ease: "easeInOut" }}
-			className="glass-panel p-4 rounded-2xl h-[300px] flex flex-col"
+			className="h-[300px]"
 		>
+			<div className="glass-panel p-4 rounded-2xl h-full flex flex-col">
 			<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name} ({item.ticker})</h3>
 			<div className="flex-1 min-h-0">
 				<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
@@ -69,7 +70,8 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 							fill={`url(#color-${item.id}-spent)`}
 						/>
 					</AreaChart>
-				</ResponsiveContainer>
+					</ResponsiveContainer>
+				</div>
 			</div>
 		</motion.div>
 	);
@@ -191,9 +193,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 		);
 	}
 
-	if (!result) return null;
-
-	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result.currency });
+	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result!.currency });
 
 	return (
 		<motion.div
@@ -298,8 +298,8 @@ export const RevealSlide = ({ onBack }: Props) => {
 					transition={{ duration: 0.6, delay: 1.1, ease: "easeOut" }}
 				>
 					<div className="text-sm text-gray-400">Total Return</div>
-					<div className={`text-6xl font-black tracking-tighter ${result.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`}>
-						{result.growthPercentage > 0 ? '+' : ''}{animatedGrowth.toFixed(0)}%
+					<div className={`text-6xl font-black tracking-tighter ${result!.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`}>
+						{result!.growthPercentage > 0 ? '+' : ''}{animatedGrowth.toFixed(0)}%
 					</div>
 				</motion.div>
 			</div>
@@ -309,69 +309,71 @@ export const RevealSlide = ({ onBack }: Props) => {
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				transition={{ duration: 1, delay: 0.2, ease: "easeInOut" }}
-				className="w-full h-[350px] glass-panel p-4 rounded-3xl relative mb-12 flex flex-col"
+				className="w-full h-[350px] relative mb-12"
 			>
-				<div className="flex items-center gap-4 mb-4 flex-wrap text-xs text-gray-300">
-					<h3 className="text-sm font-semibold text-gray-300">Portfolio Growth ({tickersLabel || 'SPY'})</h3>
-					<div className="flex items-center gap-3">
-						<div className="flex items-center gap-1">
-							<div className="w-3 h-3 rounded-full bg-brand-neon" />
-							<span>Portfolio Value</span>
-						</div>
-						<div className="flex items-center gap-1">
-							<div className="w-3 h-3 rounded-full bg-red-400" />
-							<span>Total Spent</span>
+				<div className="glass-panel p-4 rounded-3xl w-full h-full flex flex-col">
+					<div className="flex items-center gap-4 mb-4 flex-wrap text-xs text-gray-300">
+						<h3 className="text-sm font-semibold text-gray-300">Portfolio Growth ({tickersLabel || 'SPY'})</h3>
+						<div className="flex items-center gap-3">
+							<div className="flex items-center gap-1">
+								<div className="w-3 h-3 rounded-full bg-brand-neon" />
+								<span>Portfolio Value</span>
+							</div>
+							<div className="flex items-center gap-1">
+								<div className="w-3 h-3 rounded-full bg-red-400" />
+								<span>Total Spent</span>
+							</div>
 						</div>
 					</div>
-				</div>
-				<div className="flex-1 min-h-0 relative" style={{ minHeight: 250 }}>
-					<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
-						<AreaChart data={result.graphData}>
-							<defs>
-								<linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#00f4a2" stopOpacity={0.3} />
-									<stop offset="95%" stopColor="#00f4a2" stopOpacity={0} />
-								</linearGradient>
-								<linearGradient id="colorSpent" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-									<stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-								</linearGradient>
-							</defs>
-							<CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-							<XAxis
-								dataKey="date"
-								tick={{ fill: '#888', fontSize: 10 }}
-								tickLine={false}
-								axisLine={{ stroke: '#333' }}
-							/>
-							<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={80} />
-							<Tooltip
-								contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
-								formatter={(value: number | string | undefined) =>
-									typeof value === 'number' ? formatter.format(value) : ''}
-								labelStyle={{ color: '#888' }}
-							/>
-							<Area
-								type="monotone"
-								dataKey="value"
-								stroke="#00f4a2"
-								strokeWidth={3}
-								fillOpacity={1}
-								fill="url(#colorValue)"
-								name="Portfolio Value"
-							/>
-							<Area
-								type="monotone"
-								dataKey="spent"
-								stroke="#ef4444"
-								strokeWidth={2}
-								strokeDasharray="5 5"
-								fillOpacity={1}
-								fill="url(#colorSpent)"
-								name="Cash Burned"
-							/>
-						</AreaChart>
-					</ResponsiveContainer>
+					<div className="flex-1 min-h-0 relative" style={{ minHeight: 250 }}>
+						<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
+							<AreaChart data={result!.graphData}>
+								<defs>
+									<linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+										<stop offset="5%" stopColor="#00f4a2" stopOpacity={0.3} />
+										<stop offset="95%" stopColor="#00f4a2" stopOpacity={0} />
+									</linearGradient>
+									<linearGradient id="colorSpent" x1="0" y1="0" x2="0" y2="1">
+										<stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+										<stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+									</linearGradient>
+								</defs>
+								<CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+								<XAxis
+									dataKey="date"
+									tick={{ fill: '#888', fontSize: 10 }}
+									tickLine={false}
+									axisLine={{ stroke: '#333' }}
+								/>
+								<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={80} />
+								<Tooltip
+									contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
+									formatter={(value: number | string | undefined) =>
+										typeof value === 'number' ? formatter.format(value) : ''}
+									labelStyle={{ color: '#888' }}
+								/>
+								<Area
+									type="monotone"
+									dataKey="value"
+									stroke="#00f4a2"
+									strokeWidth={3}
+									fillOpacity={1}
+									fill="url(#colorValue)"
+									name="Portfolio Value"
+								/>
+								<Area
+									type="monotone"
+									dataKey="spent"
+									stroke="#ef4444"
+									strokeWidth={2}
+									strokeDasharray="5 5"
+									fillOpacity={1}
+									fill="url(#colorSpent)"
+									name="Cash Burned"
+								/>
+							</AreaChart>
+						</ResponsiveContainer>
+					</div>
 				</div>
 			</motion.div>
 

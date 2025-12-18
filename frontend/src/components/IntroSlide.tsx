@@ -66,15 +66,16 @@ export const IntroSlide = ({ onNext }: Props) => {
 
 				<motion.div
 					variants={itemVariants}
-					className="glass-panel p-6 rounded-2xl w-full flex flex-col gap-4"
+					className="w-full"
 				>
+					<div className="glass-panel p-6 rounded-2xl w-full flex flex-col gap-4">
 					<div className="flex flex-col text-left gap-2">
 						<label className="text-sm text-gray-400">Currency</label>
 						<motion.select
 							whileFocus={{ borderColor: '#00f4a2' }}
 							value={currency}
 							onChange={(e) => setCountry(country, e.target.value)}
-						className="bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-brand-neon transition-colors pointer-events-auto"
+							className="bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-brand-neon transition-colors pointer-events-auto"
 						>
 							<option value="GBP">GBP (£)</option>
 							<option value="USD">USD ($)</option>
@@ -91,6 +92,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 					>
 						Start <ChevronRight size={20} />
 					</motion.button>
+					</div>
 				</motion.div>
 			</motion.div>
 		</motion.div>

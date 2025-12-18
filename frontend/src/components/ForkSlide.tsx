@@ -74,8 +74,9 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 					whileHover="hover"
 					whileTap={{ scale: 0.96 }}
 					onClick={() => handleSelect('recurring')}
-					className="flex-1 glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:border-brand-neon transition-colors group pointer-events-auto"
+					className="flex-1 rounded-2xl transition-colors group pointer-events-auto"
 				>
+					<div className="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 group-hover:border-brand-neon">
 					<motion.div
 						whileHover={{ rotate: 10, scale: 1.1 }}
 						className="p-4 rounded-full bg-brand-neon/10 text-brand-neon group-hover:bg-brand-neon group-hover:text-brand-dark transition-colors"
@@ -84,6 +85,7 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 					</motion.div>
 					<h3 className="text-xl font-bold">Subscriptions</h3>
 					<p className="text-gray-400 text-center">Monthly recurring costs like Netflix, Spotify, or Gym.</p>
+					</div>
 				</motion.button>
 
 				<motion.button
@@ -94,8 +96,9 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 					whileHover="hover"
 					whileTap={{ scale: 0.96 }}
 					onClick={() => handleSelect('one-off')}
-					className="flex-1 glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:border-brand-purple transition-colors group pointer-events-auto"
+					className="flex-1 rounded-2xl transition-colors group pointer-events-auto"
 				>
+					<div className="glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 group-hover:border-brand-purple">
 					<motion.div
 						whileHover={{ rotate: -10, scale: 1.1 }}
 						className="p-4 rounded-full bg-brand-purple/10 text-brand-purple group-hover:bg-brand-purple group-hover:text-white transition-colors"
@@ -104,6 +107,7 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 					</motion.div>
 					<h3 className="text-xl font-bold">One-Off Purchase</h3>
 					<p className="text-gray-400 text-center">Big ticket items like a GPU, Phone, or Designer Bag.</p>
+					</div>
 				</motion.button>
 			</div>
 		</motion.div>

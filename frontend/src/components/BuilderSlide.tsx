@@ -214,9 +214,10 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 							initial={{ scale: 0.9, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.9, opacity: 0 }}
-							className="glass-panel glass-panel-opaque p-6 rounded-2xl w-full max-w-sm"
+							className="w-full max-w-sm"
 							onClick={e => e.stopPropagation()}
 						>
+							<div className="glass-panel glass-panel-opaque p-6 rounded-2xl w-full">
 							<div className="flex justify-between items-center mb-4">
 								<h3 className="text-xl font-bold">Add {presetModal.name}</h3>
 								<button onClick={() => setPresetModal(null)} className="text-gray-400 hover:text-white">
@@ -286,7 +287,8 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 									<Plus size={18} /> Add to Stack
 								</button>
 							</div>
-						</motion.div>
+						</div>
+					</motion.div>
 					</motion.div>
 				)}
 			</AnimatePresence>
@@ -325,8 +327,9 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
 					transition={{ delay: 0.2, duration: 0.5 }}
-					className="glass-panel p-6 rounded-2xl flex flex-col gap-4"
+					className=""
 				>
+					<div className="glass-panel p-6 rounded-2xl flex flex-col gap-4">
 					<p className="text-sm text-gray-400 text-center">Or add a custom item:</p>
 					<input
 						type="text"
@@ -396,7 +399,7 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 							className="flex-1 bg-transparent border-b border-white/20 p-2 outline-none focus:border-brand-neon text-white/50"
 						/>
 					</div>
-					<motion.button
+						<motion.button
 						whileHover={{ scale: 1.02, y: -2 }}
 						whileTap={{ scale: 0.98 }}
 						onClick={handleAdd}
@@ -405,6 +408,7 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 					>
 						<Plus size={18} /> Add Custom Item
 					</motion.button>
+					</div>
 				</motion.div>
 
 				{/* Basket List */}
@@ -442,9 +446,10 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 										exit={{ opacity: 0, height: 0, x: -20 }}
 										transition={{ delay: 0.05 * idx, duration: 0.3 }}
 										whileHover={{ x: 4 }}
-										className="glass-panel p-4 rounded-xl flex justify-between items-center group"
+										className=""
 									>
-										<div>
+										<div className="glass-panel p-4 rounded-xl flex justify-between items-center group">
+											<div>
 											<div className="font-bold">{item.name}</div>
 											<div className="text-xs text-gray-400">
 												{mode === 'recurring' ? 'Since' : 'Purchase date'} {item.startDate} • {item.ticker}
@@ -460,6 +465,7 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 											>
 												<Trash2 size={16} />
 											</motion.button>
+										</div>
 										</div>
 									</motion.div>
 								))}
