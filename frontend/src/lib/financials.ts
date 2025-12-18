@@ -11,8 +11,7 @@ export interface SpendItem {
 	type: 'subscription' | 'one-off';
 	startDate: string; // YYYY-MM-DD
 	ticker: string; // Stock ticker to compare against
-	// For subscriptions: cost is in the selected period (monthly or yearly)
-	pricingPeriod?: 'monthly' | 'yearly'; // For subscriptions; defaults to 'monthly'
+	pricingPeriod?: 'monthly' | 'yearly';
 }
 
 export interface SimulationResult {
@@ -27,30 +26,12 @@ export interface SimulationResult {
 	}>;
 }
 
-// Helper to find closest price (backward lookup / fill-forward)
-function getPriceOnDate(dateStr: string, history: StockDataPoint[]): number | null {
-	if (!history.length) return null;
-
-	// OPTIMIZATION: Check bounds immediately to avoid iterating.
-	// This fixes the freeze when comparing dates far in the past (e.g., 1963)
-	// against stocks that didn't exist then (e.g., Sony on NYSE started ~1970).
-	if (dateStr < history[0].date) {
-		return null;
-	}
-	if (dateStr >= history[history.length - 1].date) {
-		return history[history.length - 1].adjClose;
-	}
-
-	const targetDate = new Date(dateStr).getTime();
-
-	// Iterate backwards
-	for (let i = history.length - 1; i >= 0; i--) {
-		const hDate = new Date(history[i].date).getTime();
-		if (hDate <= targetDate) {
-			return history[i].adjClose;
-		}
-	}
-	return null; // Should be covered by boundary check, but fallback
+// Helper to reduce graph points for rendering performance
+// Recharts crashes if we try to render 20k+ points (e.g. 1963-2024)
+function downsample(data: any[], targetCount: number = 500) {
+	if (data.length <= targetCount) return data;
+	const step = Math.ceil(data.length / targetCount);
+	return data.filter((_, i) => i % step === 0 || i === data.length - 1);
 }
 
 export function calculateComparison(
@@ -70,116 +51,81 @@ export function calculateComparison(
 	// Ensure history is sorted asc
 	stockHistory.sort((a, b) => a.date.localeCompare(b.date));
 
-	// Determine simulation start date (earliest spend or start of history)
-	// We start from the earliest spend item.
-	// If spend item is before history, we hold cash until history starts.
-
 	const earliestSpendDate = items.reduce((min, item) => {
 		return item.startDate < min ? item.startDate : min;
 	}, items[0].startDate);
 
-	// We simulation should run from earliestSpendDate to Today (or last history date).
 	const lastDate = stockHistory[stockHistory.length - 1].date;
 	const startDate = earliestSpendDate;
 
 	let totalSpent = 0;
 	let sharesOwned = 0;
-	let cashHeld = 0; // Pre-IPO cash
+	let cashHeld = 0;
 
 	const graphData: Array<{ date: string; spent: number; value: number }> = [];
-
-	// Create a timeline of events?
-	// Or iterate days? Iterating days is cleaner for "burning" animation data.
 
 	const startParam = new Date(startDate);
 	const endParam = new Date(lastDate);
 	const oneDay = 24 * 60 * 60 * 1000;
 
-	// We can step daily.
-	// Optimization: If many years, daily loop is ~365*10 = 3650 iterations. Trivial for JS.
-
 	let currentPrice = 0;
 
-	// Find IPO Date (first history date)
-
+	// OPTIMIZATION: Track index to avoid O(N^2) lookups
+	let historyIndex = 0;
 
 	for (let d = startParam.getTime(); d <= endParam.getTime(); d += oneDay) {
 		const currentDate = new Date(d);
 		const dateStr = currentDate.toISOString().split('T')[0];
 
-		// Update Current Price (Fill Forward)
-		// We can maintain an index in history to avoid repeatedly searching
-		// But getPriceOnDate usage effectively fill-forwards if proper.
-		// Optimization: track history index
-		const price = getPriceOnDate(dateStr, stockHistory);
-		// Note: getPriceOnDate as implemented scans.
-		// Let's rely on the fact that we move forward.
+		// Forward-march the history index
+		// We want the latest price where stockDate <= currentDate
+		while(
+			historyIndex < stockHistory.length - 1 &&
+			stockHistory[historyIndex + 1].date <= dateStr
+		) {
+			historyIndex++;
+		}
 
-		if (price) currentPrice = price;
+		// Check if we actually have a valid price for this date
+		// (i.e. we are past the IPO date)
+		if (stockHistory[historyIndex].date <= dateStr) {
+			currentPrice = stockHistory[historyIndex].adjClose;
+		}
 
 		// Process Spending
 		for (const item of items) {
-			// Check if today is a payment day
 			let isPaymentDay = false;
 
 			if (item.type === 'one-off') {
 				isPaymentDay = (item.startDate === dateStr);
 			} else {
-				// Monthly subscription
-				// Check if day of month matches
-				// Be careful with days > 28
 				const itemStart = new Date(item.startDate);
 				if (currentDate.getTime() >= itemStart.getTime()) {
-					// Check if day of month matches
-					// AND it's not the same day as start if we want to include start
-					// Simple logic: If (CurrentMonth != LastPaidMonth) and Day >= StartDay...
-					// Better: Iterate months from start.
-					// Current approach: Check if (Current Day - Start Day) % AverageMonth == 0? No.
-
-					// Strict date matching:
-					// 1. Current Date >= Item Start Date
-					// 2. currentDate.getDate() === itemStart.getDate() ?
-					// Problem: Feb 28 vs 30.
-
-					// Let's assume 28-day cycle or actual calendar months?
-					// "Recurring Subscriptions" usually charge same day each month.
 					if (currentDate.getDate() === itemStart.getDate()) {
 						isPaymentDay = true;
 					}
-					// Edge case: itemStart is 31st, current month has 30 days -> payment on 30th?
-					// Ignored for MVP complexity.
 				}
 			}
 
 			if (isPaymentDay) {
 				totalSpent += item.cost;
-				// Invest
 				if (currentPrice > 0) {
-					// Buy stock
-					// Use cashHeld if any and buy bulk
 					if (cashHeld > 0) {
 						sharesOwned += cashHeld / currentPrice;
 						cashHeld = 0;
 					}
 					sharesOwned += item.cost / currentPrice;
 				} else {
-					// Pre-IPO or Missing Data
 					cashHeld += item.cost;
 				}
 			}
 		}
-
-		// Calculate Portfolio Value
-		// If we have price, value = shares * price + cash.
-		// If no price (pre-IPO), value = cash.
 
 		let currentValue = cashHeld;
 		if (currentPrice > 0) {
 			currentValue += sharesOwned * currentPrice;
 		}
 
-		// Only push data points periodically or all?
-		// Push all for smooth graph.
 		graphData.push({
 			date: dateStr,
 			spent: totalSpent,
@@ -189,17 +135,13 @@ export function calculateComparison(
 
 	return {
 		totalSpent,
-		investmentValue: graphData[graphData.length - 1].value,
+		investmentValue: graphData[graphData.length - 1]?.value || 0,
 		currency: items[0]?.currency || 'GBP',
 		growthPercentage: totalSpent > 0 ? ((graphData[graphData.length - 1].value - totalSpent) / totalSpent) * 100 : 0,
-		graphData
+		graphData: downsample(graphData) // OPTIMIZATION: Reduce points
 	};
 }
 
-/**
- * Calculate comparison across multiple stocks.
- * Each item in the basket is compared against its own ticker.
- */
 export function calculateMultiStockComparison(
 	items: SpendItem[],
 	stockDataMap: Record<string, StockDataPoint[]>
@@ -219,7 +161,6 @@ export function calculateMultiStockComparison(
 		stockDataMap[ticker].sort((a, b) => a.date.localeCompare(b.date));
 	}
 
-	// Find date range across all histories and items
 	const earliestSpendDate = items.reduce((min, item) => {
 		return item.startDate < min ? item.startDate : min;
 	}, items[0].startDate);
@@ -234,17 +175,19 @@ export function calculateMultiStockComparison(
 		}
 	}
 
-	// Track shares owned per ticker
 	const sharesPerTicker: Record<string, number> = {};
-	const cashPerTicker: Record<string, number> = {}; // Pre-IPO cash waiting
+	const cashPerTicker: Record<string, number> = {};
 	const currentPricePerTicker: Record<string, number> = {};
 
-	// Initialise
+	// OPTIMIZATION: Track index per ticker
+	const historyIndices: Record<string, number> = {};
+
 	for (const item of items) {
 		if (!sharesPerTicker[item.ticker]) {
 			sharesPerTicker[item.ticker] = 0;
 			cashPerTicker[item.ticker] = 0;
 			currentPricePerTicker[item.ticker] = 0;
+			historyIndices[item.ticker] = 0;
 		}
 	}
 
@@ -259,13 +202,25 @@ export function calculateMultiStockComparison(
 		const currentDate = new Date(d);
 		const dateStr = currentDate.toISOString().split('T')[0];
 
-		// Update prices for all tickers
+		// Update prices for all tickers using optimized index
 		for (const ticker of Object.keys(stockDataMap)) {
-			const price = getPriceOnDate(dateStr, stockDataMap[ticker]);
-			if (price) {
+			const history = stockDataMap[ticker];
+			if (!history || history.length === 0) continue;
+
+			// Advance index
+			while(
+				historyIndices[ticker] < history.length - 1 &&
+				history[historyIndices[ticker] + 1].date <= dateStr
+			) {
+				historyIndices[ticker]++;
+			}
+
+			// Get price if valid
+			const currentIndex = historyIndices[ticker];
+			if (history[currentIndex].date <= dateStr) {
+				const price = history[currentIndex].adjClose;
 				currentPricePerTicker[ticker] = price;
 
-				// Convert any waiting cash to shares
 				if (cashPerTicker[ticker] > 0) {
 					sharesPerTicker[ticker] += cashPerTicker[ticker] / price;
 					cashPerTicker[ticker] = 0;
@@ -273,7 +228,7 @@ export function calculateMultiStockComparison(
 			}
 		}
 
-		// Process spending for each item
+		// Process spending
 		for (const item of items) {
 			let isPaymentDay = false;
 
@@ -289,7 +244,6 @@ export function calculateMultiStockComparison(
 			}
 
 			if (isPaymentDay) {
-				// Convert yearly to monthly if needed
 				const costForPeriod = item.pricingPeriod === 'yearly' ? item.cost / 12 : item.cost;
 				totalSpent += costForPeriod;
 				const ticker = item.ticker;
@@ -303,7 +257,6 @@ export function calculateMultiStockComparison(
 			}
 		}
 
-		// Calculate total portfolio value
 		let totalValue = 0;
 		for (const ticker of Object.keys(sharesPerTicker)) {
 			const shares = sharesPerTicker[ticker];
@@ -326,17 +279,18 @@ export function calculateMultiStockComparison(
 		investmentValue: finalValue,
 		currency: items[0]?.currency || 'GBP',
 		growthPercentage: totalSpent > 0 ? ((finalValue - totalSpent) / totalSpent) * 100 : 0,
-		graphData
+		graphData: downsample(graphData) // OPTIMIZATION: Reduce points
 	};
 }
 
-/**
- * Calculate individual item comparison (one item vs its ticker).
- */
 export function calculateIndividualComparison(
 	item: SpendItem,
 	stockHistory: StockDataPoint[]
 ): SimulationResult {
+	// Re-use logic or simplify?
+	// For simplicity and optimization consistency, we can just wrap the single logic
+	// But let's copy the optimized logic for single item to ensure it's fast too.
+
 	if (!stockHistory.length) {
 		return {
 			totalSpent: 0,
@@ -361,19 +315,30 @@ export function calculateIndividualComparison(
 	const endParam = new Date(lastDate);
 	const oneDay = 24 * 60 * 60 * 1000;
 
+	let historyIndex = 0;
+
 	for (let d = startParam.getTime(); d <= endParam.getTime(); d += oneDay) {
 		const currentDate = new Date(d);
 		const dateStr = currentDate.toISOString().split('T')[0];
 
-		const currentPrice = getPriceOnDate(dateStr, stockHistory) || 0;
+		// Optimized price lookup
+		while(
+			historyIndex < stockHistory.length - 1 &&
+			stockHistory[historyIndex + 1].date <= dateStr
+		) {
+			historyIndex++;
+		}
 
-		// Convert cash to shares if price available
+		let currentPrice = 0;
+		if (stockHistory[historyIndex].date <= dateStr) {
+			currentPrice = stockHistory[historyIndex].adjClose;
+		}
+
 		if (currentPrice > 0 && cashHeld > 0) {
 			sharesOwned += cashHeld / currentPrice;
 			cashHeld = 0;
 		}
 
-		// Check if payment day for this item
 		let isPaymentDay = false;
 		if (item.type === 'one-off') {
 			isPaymentDay = (item.startDate === dateStr);
@@ -414,6 +379,6 @@ export function calculateIndividualComparison(
 		investmentValue: finalValue,
 		currency: item.currency,
 		growthPercentage: totalSpent > 0 ? ((finalValue - totalSpent) / totalSpent) * 100 : 0,
-		graphData
+		graphData: downsample(graphData) // OPTIMIZATION: Reduce points
 	};
 }
