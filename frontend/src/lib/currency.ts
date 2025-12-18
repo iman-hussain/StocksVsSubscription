@@ -12,6 +12,7 @@ const EXCHANGE_RATES: Record<string, number> = {
 	CAD: 1.77,
 	AUD: 1.95,
 	JPY: 189.5,
+	KRW: 1700,
 };
 
 /**
@@ -67,6 +68,7 @@ export function getCurrencySymbol(currencyCode: string): string {
 		CAD: 'CA$',
 		AUD: 'A$',
 		JPY: '¥',
+		KRW: '₩',
 	};
 	return symbols[currencyCode] ?? currencyCode;
 }
