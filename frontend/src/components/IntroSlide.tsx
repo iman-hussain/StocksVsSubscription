@@ -35,9 +35,9 @@ export const IntroSlide = ({ onNext }: Props) => {
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
 			exit={{ opacity: 0 }}
-			className="h-dvh w-full flex flex-col items-center justify-center relative overflow-hidden p-6 text-center"
+			className="h-dvh w-full flex flex-col items-center justify-center relative isolate overflow-hidden p-6 text-center"
 		>
-			<div className="absolute inset-0">
+			<div className="absolute inset-0 z-0">
 				<CurrencyRain density={40} />
 			</div>
 

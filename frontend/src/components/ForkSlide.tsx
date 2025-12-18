@@ -39,13 +39,13 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
 			exit={{ opacity: 0 }}
-			className="h-dvh w-full flex flex-col items-center justify-center p-6 gap-8 relative overflow-hidden"
+			className="h-dvh w-full flex flex-col items-center justify-center p-6 gap-8 relative isolate overflow-hidden"
 		>
-			<div className="absolute inset-0">
+			<div className="absolute inset-0 z-0">
 				<CurrencyRain density={40} />
 			</div>
 			{/* Header with title and back button */}
-			<div className="absolute top-4 left-4 z-10 pointer-events-auto">
+			<div className="absolute top-4 left-4 z-20 pointer-events-auto">
 			<motion.button
 				whileHover={{ x: -4 }}
 				whileTap={{ scale: 0.95 }}

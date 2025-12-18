@@ -146,8 +146,6 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
                         p2.vx += impulse * nx;
                         p2.vy += impulse * ny;
 
-                        // FIX 1: Significantly reduced spin impulse on collision
-                        // Previous value was 0.1, now 0.005 (20x less)
                         p1.spin += (Math.random() - 0.5) * 0.005;
                         p2.spin -= (Math.random() - 0.5) * 0.005;
                     }
@@ -168,12 +166,8 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
         d.vx *= 0.995;
         d.vy = Math.min(d.vy, 4 * speedFactor);
 
-        // FIX 2: Rotational Drag (Friction)
-        // This ensures that even if they get hit hard, they slow down rotation eventually
         d.spin *= 0.98;
 
-        // FIX 3: Hard Spin Clamping (Speed Limit)
-        // Prevents the "super duper fast" glitch entirely
         const maxSpin = 0.15;
         if (d.spin > maxSpin) d.spin = maxSpin;
         if (d.spin < -maxSpin) d.spin = -maxSpin;
@@ -311,7 +305,7 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
   }, [density, createDrop, computeTargetCount, speedFactor]);
 
   return (
-    <div className="absolute inset-0 z-0 pointer-events-auto select-none">
+    <div className="absolute inset-0 pointer-events-auto select-none">
       <canvas ref={canvasRef} className="w-full h-full cursor-auto" />
     </div>
   );
