@@ -259,7 +259,7 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
   }, [density, createDrop, computeTargetCount]);
 
   return (
-    <div className="absolute inset-0 -z-0 pointer-events-auto touch-none">
+    <div className="absolute inset-0 -z-10 pointer-events-none select-none">
       <canvas ref={canvasRef} className="w-full h-full" />
     </div>
   );
