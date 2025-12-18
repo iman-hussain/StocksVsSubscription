@@ -106,7 +106,20 @@ Go to **"Domains"** and add:
 
 Enable **"Generate SSL Certificate"** (Let's Encrypt).
 
-### 3.5 Deploy
+### 3.5 Configure Healthcheck
+
+Go to **"Health Checks"** and ensure these settings are configured:
+
+* **Enabled**: Toggle on
+* **Path**: `/` (root path – the API responds with "StocksVsSubscription API is running!")
+* **Port**: `3000`
+* **Interval**: `30` seconds
+* **Timeout**: `3` seconds
+* **Retries**: `3`
+
+Coolify will automatically use `wget` (which is included in the Dockerfile) to verify the backend is running.
+
+### 3.6 Deploy
 
 Click **"Deploy"** and wait for it to complete.
 
