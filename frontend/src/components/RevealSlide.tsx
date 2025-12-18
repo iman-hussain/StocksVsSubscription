@@ -81,8 +81,23 @@ export const RevealSlide = ({ onBack }: Props) => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
 	const animatedGrowth = useCountUp(result?.growthPercentage ?? 0, 2000);
+	const animatedSpent = useCountUp(result?.totalSpent ?? 0, 2000);
+	const animatedInvestment = useCountUp(result?.investmentValue ?? 0, 2000);
 	const tickers = [...new Set(basket.map((item) => item.ticker))];
 	const tickersLabel = tickers.join(' + ');
+
+	// Format item names for the verdict text (e.g., "Netflix, Spotify & Gym" or "Netflix, Spotify & 3 others")
+	const formatItemNames = () => {
+		const names = basket.map(item => item.name);
+		if (names.length === 0) return '';
+		if (names.length === 1) return names[0];
+		if (names.length === 2) return `${names[0]} & ${names[1]}`;
+		if (names.length === 3) return `${names[0]}, ${names[1]} & ${names[2]}`;
+		// More than 3 items: show first 2 and "X others"
+		const othersCount = names.length - 2;
+		return `${names[0]}, ${names[1]} & ${othersCount} others`;
+	};
+	const itemNamesLabel = formatItemNames();
 
 	useEffect(() => {
 		const fetchAndCalculate = async () => {
@@ -188,28 +203,96 @@ export const RevealSlide = ({ onBack }: Props) => {
 				</motion.button>
 			</div>
 
-			{/* Verdict Section - No animation on text */}
+			{/* Verdict Section - Animated */}
 			<div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
 				<div>
-					<h2 className="text-gray-400 uppercase tracking-widest text-sm font-bold mb-2">The Verdict</h2>
+					<motion.h2
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+						className="text-gray-400 uppercase tracking-widest text-sm font-bold mb-2"
+					>
+						The Verdict
+					</motion.h2>
 					<h1 className="text-3xl md:text-5xl font-bold leading-tight">
-						You spent <span className="text-red-400">{formatter.format(result.totalSpent)}</span>.
+						<motion.span
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+							className="inline-block"
+						>
+							You spent{' '}
+						</motion.span>
+						<motion.span
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.5, ease: "easeOut" }}
+							className="text-red-400 inline-block"
+						>
+							{formatter.format(animatedSpent)}
+						</motion.span>
+						<motion.span
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
+							className="inline-block"
+						>
+							{' '}on{' '}
+						</motion.span>
+						<motion.span
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.7, ease: "easeOut" }}
+							className="text-white inline-block"
+						>
+							{itemNamesLabel}
+						</motion.span>
+						<motion.span
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							transition={{ duration: 0.4, delay: 0.7 }}
+							className="inline-block"
+						>
+							.
+						</motion.span>
 						<br />
-						<span className="opacity-50">
-							If you invested instead, you'd have{' '}
-						</span>
-						<span className="text-brand-neon">
-							{formatter.format(result.investmentValue)}
-						</span>.
+						<motion.span
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 0.5, y: 0 }}
+							transition={{ duration: 0.6, delay: 0.9, ease: "easeOut" }}
+							className="inline-block"
+						>
+							If you invested that in those stocks instead, you'd have{' '}
+						</motion.span>
+						<motion.span
+							initial={{ opacity: 0, y: 15 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.6, delay: 1.1, ease: "easeOut" }}
+							className="text-brand-neon inline-block"
+						>
+							{formatter.format(animatedInvestment)}
+						</motion.span>
+						<motion.span
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							transition={{ duration: 0.4, delay: 1.1 }}
+							className="inline-block"
+						>
+							.
+						</motion.span>
 					</h1>
 				</div>
 
-				<div>
+				<motion.div
+					initial={{ opacity: 0, y: 20 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.6, delay: 1.1, ease: "easeOut" }}
+				>
 					<div className="text-sm text-gray-400">Total Return</div>
 					<div className={`text-6xl font-black tracking-tighter ${result.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`}>
 						{result.growthPercentage > 0 ? '+' : ''}{animatedGrowth.toFixed(0)}%
 					</div>
-				</div>
+				</motion.div>
 			</div>
 
 			{/* Main Portfolio Graph */}
@@ -291,12 +374,11 @@ export const RevealSlide = ({ onBack }: Props) => {
 					transition={{ duration: 1, delay: 0.4 }}
 				>
 					<h3 className="text-sm font-semibold text-gray-300 mb-6">Individual Item Performance</h3>
-					<div className={`grid gap-6 ${
-						basket.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
+					<div className={`grid gap-6 ${basket.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
 						basket.length === 3 ? 'grid-cols-1 md:grid-cols-3' :
-						basket.length <= 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2' :
-						'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
-					}`}>
+							basket.length <= 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2' :
+								'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+						}`}>
 						{basket.map((item, idx) => (
 							<motion.div
 								key={item.id}
