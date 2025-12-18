@@ -296,9 +296,9 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
     // --- Gaming Consoles: Modern ---
     { name: 'Xbox Series X', ticker: 'MSFT', rtp: 479, releaseDate: '2020-11-10', aliases: ['xbox series x', 'xboxxs', 'xbox x', 'seriesx'] },
     { name: 'Xbox Series S', ticker: 'MSFT', rtp: 299, releaseDate: '2020-11-10', aliases: ['xbox series s', 'xboxss', 'xbox s', 'seriess'] },
+    { name: 'PlayStation 5 Pro', ticker: 'SONY', rtp: 699, releaseDate: '2024-11-07', aliases: ['ps5 pro', 'playstation 5 pro', 'ps5pro', 'sony ps5 pro'] },
     { name: 'PlayStation 5', ticker: 'SONY', rtp: 479, releaseDate: '2020-11-12', aliases: ['ps5', 'playstation 5', 'playstation5', 'playstation'] },
     { name: 'Nintendo Switch', ticker: 'NTDOY', rtp: 299, releaseDate: '2017-03-03', aliases: ['switch', 'nintendo switch', 'nintendoswitch'] },
-    { name: 'Steam Deck', ticker: 'VAL', rtp: 449, releaseDate: '2022-02-25', aliases: ['steamdeck', 'steam deck'] },
 
     // --- Gaming Consoles: Classic/Legacy ---
     { name: 'PlayStation 4', ticker: 'SONY', rtp: 299, releaseDate: '2013-11-15', aliases: ['ps4', 'playstation 4', 'playstation4'] },
