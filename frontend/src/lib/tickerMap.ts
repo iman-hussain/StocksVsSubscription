@@ -62,51 +62,68 @@ export const SUBSCRIPTION_TICKERS: TickerMapping[] = [
  * Allows users to compare product purchases against investing in the company's stock.
  */
 export const PRODUCT_DATABASE: ProductMapping[] = [
-	// Apple Products
-	{ name: 'iPhone', ticker: 'AAPL', rtp: 799, releaseDate: '2024-09-20', aliases: ['iphone 15', 'iphone15', 'iphone 15 standard'] },
-	{ name: 'iPhone Pro', ticker: 'AAPL', rtp: 999, releaseDate: '2024-09-20', aliases: ['iphone 15 pro', 'iphone15pro', 'iphone pro', 'iphone pro max', 'iphone 15 pro max', 'iphone15promax'] },
-	{ name: 'MacBook Air', ticker: 'AAPL', rtp: 1199, releaseDate: '2024-03-04', aliases: ['macbook air', 'macbookair', 'mba'] },
-	{ name: 'MacBook Pro', ticker: 'AAPL', rtp: 1999, releaseDate: '2024-01-30', aliases: ['macbook pro', 'macbookpro', 'mbp'] },
-	{ name: 'iPad', ticker: 'AAPL', rtp: 349, releaseDate: '2024-05-15', aliases: ['ipad'] },
-	{ name: 'Apple Watch', ticker: 'AAPL', rtp: 399, releaseDate: '2024-09-16', aliases: ['apple watch', 'applewatch', 'watch'] },
-	{ name: 'AirPods Pro', ticker: 'AAPL', rtp: 249, releaseDate: '2024-09-09', aliases: ['airpods pro', 'airpodspro', 'airpods'] },
+    // Apple Products
+    { name: 'iPhone', ticker: 'AAPL', rtp: 799, releaseDate: '2024-09-20', aliases: ['iphone 15', 'iphone15', 'iphone 15 standard'] },
+    { name: 'iPhone Pro', ticker: 'AAPL', rtp: 999, releaseDate: '2024-09-20', aliases: ['iphone 15 pro', 'iphone15pro', 'iphone pro', 'iphone pro max', 'iphone 15 pro max', 'iphone15promax'] },
+    { name: 'MacBook Air', ticker: 'AAPL', rtp: 1199, releaseDate: '2024-03-04', aliases: ['macbook air', 'macbookair', 'mba'] },
+    { name: 'MacBook Pro', ticker: 'AAPL', rtp: 1999, releaseDate: '2024-01-30', aliases: ['macbook pro', 'macbookpro', 'mbp'] },
+    { name: 'iPad', ticker: 'AAPL', rtp: 349, releaseDate: '2024-05-15', aliases: ['ipad'] },
+    { name: 'Apple Watch', ticker: 'AAPL', rtp: 399, releaseDate: '2024-09-16', aliases: ['apple watch', 'applewatch', 'watch'] },
+    { name: 'AirPods Pro', ticker: 'AAPL', rtp: 249, releaseDate: '2024-09-09', aliases: ['airpods pro', 'airpodspro', 'airpods'] },
 
-	// Microsoft Products
-	{ name: 'Xbox Series X', ticker: 'MSFT', rtp: 479, releaseDate: '2020-11-10', aliases: ['xbox series x', 'xboxxs', 'xbox x', 'seriesx'] },
-	{ name: 'Xbox Series S', ticker: 'MSFT', rtp: 299, releaseDate: '2020-11-10', aliases: ['xbox series s', 'xboxss', 'xbox s', 'seriess'] },
-	{ name: 'Surface Laptop', ticker: 'MSFT', rtp: 999, releaseDate: '2024-06-18', aliases: ['surface laptop', 'surfacelaptop', 'surface'] },
-	{ name: 'Surface Pro', ticker: 'MSFT', rtp: 799, releaseDate: '2024-05-20', aliases: ['surface pro', 'surfacepro'] },
+    // Microsoft Products
+    { name: 'Xbox Series X', ticker: 'MSFT', rtp: 479, releaseDate: '2020-11-10', aliases: ['xbox series x', 'xboxxs', 'xbox x', 'seriesx'] },
+    { name: 'Xbox Series S', ticker: 'MSFT', rtp: 299, releaseDate: '2020-11-10', aliases: ['xbox series s', 'xboxss', 'xbox s', 'seriess'] },
+    { name: 'Surface Laptop', ticker: 'MSFT', rtp: 999, releaseDate: '2024-06-18', aliases: ['surface laptop', 'surfacelaptop', 'surface'] },
+    { name: 'Surface Pro', ticker: 'MSFT', rtp: 799, releaseDate: '2024-05-20', aliases: ['surface pro', 'surfacepro'] },
 
-	// Sony Products
-	{ name: 'PlayStation 5', ticker: 'SONY', rtp: 479, releaseDate: '2020-11-12', aliases: ['ps5', 'playstation 5', 'playstation5', 'playstation'] },
-	{ name: 'PlayStation 4', ticker: 'SONY', rtp: 299, releaseDate: '2013-11-15', aliases: ['ps4', 'playstation 4', 'playstation4'] },
+    // Sony Products
+    { name: 'PlayStation 5', ticker: 'SONY', rtp: 479, releaseDate: '2020-11-12', aliases: ['ps5', 'playstation 5', 'playstation5', 'playstation'] },
+    { name: 'PlayStation 4', ticker: 'SONY', rtp: 299, releaseDate: '2013-11-15', aliases: ['ps4', 'playstation 4', 'playstation4'] },
+    { name: 'Sony WH-1000XM5', ticker: 'SONY', rtp: 349, releaseDate: '2022-05-20', aliases: ['sony headphones', 'xm5', 'wh1000xm5', 'noise cancelling headphones'] },
 
-	// NVIDIA Products
-	{ name: 'RTX 4090', ticker: 'NVDA', rtp: 1599, releaseDate: '2022-10-12', aliases: ['rtx 4090', 'rtx4090', '4090', 'geforce rtx 4090'] },
-	{ name: 'RTX 4080', ticker: 'NVDA', rtp: 1199, releaseDate: '2022-11-16', aliases: ['rtx 4080', 'rtx4080', '4080', 'geforce rtx 4080'] },
-	{ name: 'RTX 4070', ticker: 'NVDA', rtp: 649, releaseDate: '2023-01-05', aliases: ['rtx 4070', 'rtx4070', '4070', 'geforce rtx 4070'] },
+    // NVIDIA Products
+    { name: 'RTX 4090', ticker: 'NVDA', rtp: 1599, releaseDate: '2022-10-12', aliases: ['rtx 4090', 'rtx4090', '4090', 'geforce rtx 4090'] },
+    { name: 'RTX 4080', ticker: 'NVDA', rtp: 1199, releaseDate: '2022-11-16', aliases: ['rtx 4080', 'rtx4080', '4080', 'geforce rtx 4080'] },
+    { name: 'RTX 4070', ticker: 'NVDA', rtp: 649, releaseDate: '2023-01-05', aliases: ['rtx 4070', 'rtx4070', '4070', 'geforce rtx 4070'] },
 
-	// Samsung Products
-	{ name: 'Samsung Galaxy S24', ticker: 'SSNLF', rtp: 849, releaseDate: '2024-01-25', aliases: ['galaxy s24', 'galaxys24', 's24', 'samsung s24'] },
-	{ name: 'Samsung Galaxy Tab', ticker: 'SSNLF', rtp: 349, releaseDate: '2024-02-01', aliases: ['galaxy tab', 'galaxytab', 'samsung tablet'] },
+    // Samsung Products
+    { name: 'Samsung Galaxy S24', ticker: 'SSNLF', rtp: 849, releaseDate: '2024-01-25', aliases: ['galaxy s24', 'galaxys24', 's24', 'samsung s24'] },
+    { name: 'Samsung Galaxy Tab', ticker: 'SSNLF', rtp: 349, releaseDate: '2024-02-01', aliases: ['galaxy tab', 'galaxytab', 'samsung tablet'] },
 
-	// Google Products
-	{ name: 'Pixel Phone', ticker: 'GOOGL', rtp: 799, releaseDate: '2024-10-03', aliases: ['pixel 9', 'pixel9', 'pixel phone', 'google pixel', 'googlepixel'] },
+    // Google Products
+    { name: 'Pixel Phone', ticker: 'GOOGL', rtp: 799, releaseDate: '2024-10-03', aliases: ['pixel 9', 'pixel9', 'pixel phone', 'google pixel', 'googlepixel'] },
+    { name: 'Nest Hub', ticker: 'GOOGL', rtp: 89, releaseDate: '2021-03-30', aliases: ['nest', 'google home', 'smart display'] },
+    { name: 'Fitbit Charge', ticker: 'GOOGL', rtp: 139, releaseDate: '2023-09-28', aliases: ['fitbit', 'activity tracker'] },
 
-	// Popular Gaming/Tech
-	{ name: 'Nintendo Switch', ticker: 'NTDOY', rtp: 299, releaseDate: '2017-03-03', aliases: ['switch', 'nintendo switch', 'nintendoswitch'] },
-	{ name: 'Steam Deck', ticker: 'VAL', rtp: 449, releaseDate: '2022-02-25', aliases: ['steamdeck', 'steam deck'] },
-	{ name: 'Meta Quest 3', ticker: 'META', rtp: 499, releaseDate: '2023-10-10', aliases: ['quest 3', 'quest3', 'meta quest', 'oculus'] },
+    // Smart Home & IoT (Added)
+    { name: 'Amazon Echo', ticker: 'AMZN', rtp: 89, releaseDate: '2020-10-22', aliases: ['alexa', 'echo', 'smart speaker'] },
+    { name: 'Kindle Paperwhite', ticker: 'AMZN', rtp: 149, releaseDate: '2021-10-27', aliases: ['kindle', 'ereader', 'ebook reader'] },
+    { name: 'Ring Doorbell', ticker: 'AMZN', rtp: 99, releaseDate: '2020-04-01', aliases: ['ring', 'video doorbell', 'smart doorbell'] },
+    { name: 'Philips Hue Starter Kit', ticker: 'PHG', rtp: 169, releaseDate: '2021-06-15', aliases: ['hue', 'smart lights', 'philips hue'] }, // Signify NV
+    { name: 'iRobot Roomba', ticker: 'IRBT', rtp: 399, releaseDate: '2022-09-01', aliases: ['roomba', 'robot vacuum'] },
 
-	// Monitors & Peripherals (generic)
-	{ name: '4K Monitor', ticker: 'DELL', rtp: 399, releaseDate: '2023-01-01', aliases: ['monitor', '4k monitor', '4kmonitor'] },
-	{ name: 'Gaming Keyboard', ticker: 'LOGI', rtp: 149, releaseDate: '2023-01-01', aliases: ['keyboard', 'gaming keyboard', 'mechanical keyboard'] },
-	{ name: 'Gaming Mouse', ticker: 'LOGI', rtp: 79, releaseDate: '2023-01-01', aliases: ['mouse', 'gaming mouse', 'wireless mouse'] },
+    // Audio & Wearables (Added)
+    { name: 'Sonos Arc', ticker: 'SONO', rtp: 899, releaseDate: '2020-06-10', aliases: ['sonos', 'soundbar', 'arc'] },
+    { name: 'Garmin Fenix', ticker: 'GRMN', rtp: 799, releaseDate: '2023-05-31', aliases: ['garmin', 'fenix', 'smartwatch', 'sportswatch'] },
+    { name: 'GoPro Hero 12', ticker: 'GPRO', rtp: 399, releaseDate: '2023-09-13', aliases: ['gopro', 'action cam', 'hero12'] },
 
-	// Fallback/Generic
-	{ name: 'Laptop', ticker: 'DELL', rtp: 999, releaseDate: '2023-01-01', aliases: ['laptop', 'computer', 'pc'] },
-	{ name: 'Desktop PC', ticker: 'DELL', rtp: 1499, releaseDate: '2023-01-01', aliases: ['desktop', 'pc', 'desktop pc', 'gaming pc'] },
-	{ name: 'Phone', ticker: 'AAPL', rtp: 799, releaseDate: '2024-09-20', aliases: ['phone', 'smartphone'] },
+    // Popular Gaming/Tech
+    { name: 'Nintendo Switch', ticker: 'NTDOY', rtp: 299, releaseDate: '2017-03-03', aliases: ['switch', 'nintendo switch', 'nintendoswitch'] },
+    { name: 'Steam Deck', ticker: 'VAL', rtp: 449, releaseDate: '2022-02-25', aliases: ['steamdeck', 'steam deck'] }, // Note: Valve is Private. 'VAL' is Valaris (Drilling).
+    { name: 'Meta Quest 3', ticker: 'META', rtp: 499, releaseDate: '2023-10-10', aliases: ['quest 3', 'quest3', 'meta quest', 'oculus'] },
+    { name: 'Peloton Bike', ticker: 'PTON', rtp: 1445, releaseDate: '2020-09-09', aliases: ['peloton', 'exercise bike'] },
+
+    // Monitors & Peripherals (generic)
+    { name: '4K Monitor', ticker: 'DELL', rtp: 399, releaseDate: '2023-01-01', aliases: ['monitor', '4k monitor', '4kmonitor'] },
+    { name: 'Gaming Keyboard', ticker: 'LOGI', rtp: 149, releaseDate: '2023-01-01', aliases: ['keyboard', 'gaming keyboard', 'mechanical keyboard'] },
+    { name: 'Gaming Mouse', ticker: 'LOGI', rtp: 79, releaseDate: '2023-01-01', aliases: ['mouse', 'gaming mouse', 'wireless mouse'] },
+    { name: 'Streaming Stick', ticker: 'ROKU', rtp: 49, releaseDate: '2021-09-20', aliases: ['roku', 'firestick', 'streaming dongle'] },
+
+    // Fallback/Generic
+    { name: 'Laptop', ticker: 'DELL', rtp: 999, releaseDate: '2023-01-01', aliases: ['laptop', 'computer', 'pc'] },
+    { name: 'Desktop PC', ticker: 'DELL', rtp: 1499, releaseDate: '2023-01-01', aliases: ['desktop', 'pc', 'desktop pc', 'gaming pc'] },
+    { name: 'Phone', ticker: 'AAPL', rtp: 799, releaseDate: '2024-09-20', aliases: ['phone', 'smartphone'] },
 ];
 
 /**
