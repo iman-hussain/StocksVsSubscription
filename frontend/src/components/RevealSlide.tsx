@@ -17,9 +17,9 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 
 	return (
 		<motion.div
-			initial={{ opacity: 0, scale: 0.95 }}
-			animate={{ opacity: 1, scale: 1 }}
-			transition={{ duration: 0.5, ease: "easeOut" }}
+			initial={{ opacity: 0 }}
+			animate={{ opacity: 1 }}
+			transition={{ duration: 0.8, ease: "easeInOut" }}
 			className="glass-panel p-4 rounded-2xl h-[300px] flex flex-col"
 		>
 			<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name} ({item.ticker})</h3>
@@ -132,11 +132,14 @@ export const RevealSlide = ({ onBack }: Props) => {
 			<motion.div
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
+				exit={{ opacity: 0 }}
 				className="h-dvh flex flex-col items-center justify-center gap-4 relative overflow-hidden"
 			>
 				<div className="absolute inset-0 pointer-events-none">
 					<CurrencyRain density={40} />
 				</div>
+				{/* Kept the spinner here as it is necessary for loading context,
+				    but it will disappear completely before results are shown. */}
 				<motion.div
 					animate={{ rotate: 360 }}
 					transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
@@ -170,6 +173,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 		<motion.div
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
+			transition={{ duration: 1, ease: "easeInOut" }}
 			className="min-h-dvh w-full flex flex-col p-6 max-w-7xl mx-auto pt-12 pb-32 relative"
 		>
 			<div className="fixed top-4 left-4 z-10">
@@ -182,11 +186,11 @@ export const RevealSlide = ({ onBack }: Props) => {
 				</motion.button>
 			</div>
 
-			{/* Verdict Section - Refined Animation */}
+			{/* Verdict Section - STRICTLY FADE ONLY */}
 			<motion.div
-				initial={{ opacity: 0, y: 10 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.8, ease: "easeOut" }}
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				transition={{ duration: 1, ease: "easeInOut" }}
 				className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6"
 			>
 				<div>
@@ -205,10 +209,11 @@ export const RevealSlide = ({ onBack }: Props) => {
 
 				<div>
 					<div className="text-sm text-gray-400">Total Return</div>
+					{/* Removed scale animation completely to prevent any "pop" or "spin" illusion */}
 					<motion.div
 						initial={{ opacity: 0 }}
 						animate={{ opacity: 1 }}
-						transition={{ duration: 1, delay: 0.2 }}
+						transition={{ duration: 1, delay: 0.3, ease: "easeInOut" }}
 						className={`text-6xl font-black tracking-tighter ${result.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`}
 					>
 						{result.growthPercentage > 0 ? '+' : ''}{animatedGrowth.toFixed(0)}%
@@ -216,10 +221,11 @@ export const RevealSlide = ({ onBack }: Props) => {
 				</div>
 			</motion.div>
 
+			{/* Main Portfolio Graph */}
 			<motion.div
-				initial={{ opacity: 0, y: 10 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				transition={{ duration: 1, delay: 0.2, ease: "easeInOut" }}
 				className="w-full h-[350px] glass-panel p-4 rounded-3xl relative mb-12 flex flex-col"
 			>
 				<div className="flex items-center gap-4 mb-4 flex-wrap text-xs text-gray-300">
@@ -286,11 +292,12 @@ export const RevealSlide = ({ onBack }: Props) => {
 				</div>
 			</motion.div>
 
+			{/* Individual Item Charts Grid */}
 			{basket.length > 1 && (
 				<motion.div
 					initial={{ opacity: 0 }}
 					animate={{ opacity: 1 }}
-					transition={{ duration: 0.8, delay: 0.4 }}
+					transition={{ duration: 1, delay: 0.4 }}
 				>
 					<h3 className="text-sm font-semibold text-gray-300 mb-6">Individual Item Performance</h3>
 					<div className={`grid gap-6 ${
@@ -302,9 +309,9 @@ export const RevealSlide = ({ onBack }: Props) => {
 						{basket.map((item, idx) => (
 							<motion.div
 								key={item.id}
-								initial={{ opacity: 0, scale: 0.95 }}
-								animate={{ opacity: 1, scale: 1 }}
-								transition={{ duration: 0.5, delay: 0.1 * idx, ease: "easeOut" }}
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								transition={{ duration: 0.8, delay: 0.1 * idx, ease: "easeOut" }}
 							>
 								{itemResults[item.id] && <ItemChart item={item} result={itemResults[item.id]} />}
 							</motion.div>
