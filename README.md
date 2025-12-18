@@ -59,7 +59,31 @@ A cinematic, high-performance web application that visualizes the opportunity co
    npm install
    ```
 
-3. **Start Dev Server**
+3. **Set up Environment Variables**
+
+   Copy the example environment files and configure them:
+
+   ```bash
+   # Backend configuration
+   cp .env.example .env
+   
+   # Frontend configuration
+   cp frontend/.env.example frontend/.env
+   ```
+
+   **Backend (`.env`):**
+   * `NODE_ENV`: Set to `development` for local, `production` for deployed environments
+   * `PORT`: Backend server port (default: 3000)
+   * `REDIS_URL`: Redis connection URL (optional, recommended for production)
+     * Local: `redis://localhost:6379`
+     * Production: Your Redis host URL
+
+   **Frontend (`frontend/.env`):**
+   * `VITE_API_URL`: Backend API URL
+     * Local development: `http://localhost:3000`
+     * Production: `https://api.svs.imanhussain.com`
+
+4. **Start Dev Server**
 
    ```bash
    npm run dev
@@ -83,15 +107,54 @@ To stop, run `stop_local.bat` to kill servers on ports 3000/5173/5174.
 
 ### Production (Docker)
 
-To run the full stack with Redis:
+To run the full stack with Redis locally:
 
-```bash
-docker-compose up --build
 ```bash
 docker-compose up --build
 ```
 
 Access the app at [http://localhost:3000](http://localhost:3000).
+
+To build for production deployment with a custom API URL:
+
+```bash
+# Set the API URL for the build
+export VITE_API_URL=https://api.svs.imanhussain.com  # Linux/Mac
+# or
+set VITE_API_URL=https://api.svs.imanhussain.com     # Windows CMD
+# or
+$env:VITE_API_URL="https://api.svs.imanhussain.com"  # Windows PowerShell
+
+# Build the Docker image
+docker-compose build
+```
+
+## 🌐 Deployment
+
+For detailed deployment instructions to production environments like Coolify, see [docs/coolify-setup.md](docs/coolify-setup.md).
+
+**Production URLs:**
+
+* **Frontend**: [svs.imanhussain.com](https://svs.imanhussain.com)
+* **Backend API**: [api.svs.imanhussain.com](https://api.svs.imanhussain.com)
+
+**Environment Variables for Production:**
+
+1. **Backend** (`.env`):
+
+   ```env
+   NODE_ENV=production
+   PORT=3000
+   REDIS_URL=redis://your-redis-host:6379
+   ```
+
+2. **Frontend** (`frontend/.env` or build-time variables):
+
+   ```env
+   VITE_API_URL=https://api.svs.imanhussain.com
+   ```
+
+   *Note: Vite environment variables are baked into the frontend build at build-time, not runtime.*
 
 ## 📂 Project Structure
 

@@ -2,6 +2,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build arguments for frontend environment variables
+ARG VITE_API_URL=http://localhost:3000
+
 # Copy package.json files
 COPY package.json .
 COPY frontend/package.json frontend/
@@ -20,6 +23,8 @@ COPY . .
 
 # Build Frontend
 WORKDIR /app/frontend
+# Pass the build arg as environment variable for Vite
+ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 # Output in /app/frontend/dist
 

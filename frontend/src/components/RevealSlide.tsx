@@ -92,8 +92,9 @@ export const RevealSlide = ({ onBack }: Props) => {
 			try {
 				const uniqueTickers = [...new Set(basket.map(item => item.ticker))];
 
+				const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 				const stockDataPromises = uniqueTickers.map(async (ticker) => {
-					const res = await fetch(`http://localhost:3000/api/stock?symbol=${ticker}`);
+					const res = await fetch(`${apiUrl}/api/stock?symbol=${ticker}`);
 					const data = await res.json();
 					if (data.error) throw new Error(`Failed to fetch ${ticker}: ${data.error}`);
 					return { ticker, history: data.history };

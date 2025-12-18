@@ -104,7 +104,7 @@ app.get('/api/search', async (c) => {
 	}
 })
 
-const port = 3000
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
 console.log(`Server is running on port ${port} `)
 
 // Serve static files from 'static' directory (mapped to client/dist in Docker)
