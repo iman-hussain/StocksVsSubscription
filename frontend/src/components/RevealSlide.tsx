@@ -161,7 +161,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 				exit={{ opacity: 0 }}
 				className="h-dvh flex flex-col items-center justify-center gap-4 relative overflow-hidden"
 			>
-				<div className="absolute inset-0 pointer-events-none">
+				<div className="absolute inset-0">
 					<CurrencyRain density={40} />
 				</div>
 				{/* Kept the spinner here as it is necessary for loading context,
@@ -202,11 +202,11 @@ export const RevealSlide = ({ onBack }: Props) => {
 			transition={{ duration: 1, ease: "easeInOut" }}
 			className="min-h-dvh w-full flex flex-col p-6 max-w-7xl mx-auto pt-12 pb-32 relative"
 		>
-			<div className="fixed top-4 left-4 z-10">
+			<div className="fixed top-4 left-4 z-10 pointer-events-auto">
 				<motion.button
 					whileHover={{ x: -4 }}
 					onClick={onBack}
-					className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
+					className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors pointer-events-auto"
 				>
 					<ChevronLeft size={20} /> Back
 				</motion.button>

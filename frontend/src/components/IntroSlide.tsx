@@ -37,7 +37,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 			exit={{ opacity: 0 }}
 			className="h-dvh w-full flex flex-col items-center justify-center relative overflow-hidden p-6 text-center"
 		>
-			<div className="absolute inset-0 pointer-events-none">
+			<div className="absolute inset-0">
 				<CurrencyRain density={40} />
 			</div>
 
@@ -45,7 +45,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 				variants={containerVariants}
 				initial="hidden"
 				animate="visible"
-				className="z-10 flex flex-col items-center gap-8 max-w-md w-full"
+				className="z-10 flex flex-col items-center gap-8 max-w-md w-full pointer-events-auto"
 			>
 				<motion.h1
 					variants={itemVariants}
@@ -74,7 +74,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 							whileFocus={{ borderColor: '#00f4a2' }}
 							value={currency}
 							onChange={(e) => setCountry(country, e.target.value)}
-							className="bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-brand-neon transition-colors"
+						className="bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-brand-neon transition-colors pointer-events-auto"
 						>
 							<option value="GBP">GBP (£)</option>
 							<option value="USD">USD ($)</option>
@@ -87,7 +87,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 						whileHover={{ scale: 1.02, y: -2 }}
 						whileTap={{ scale: 0.98 }}
 						onClick={onNext}
-						className="mt-4 bg-brand-neon text-brand-dark font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-white transition-colors"
+						className="mt-4 bg-brand-neon text-brand-dark font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-white transition-colors pointer-events-auto"
 					>
 						Start <ChevronRight size={20} />
 					</motion.button>

@@ -41,11 +41,11 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 			exit={{ opacity: 0 }}
 			className="h-dvh w-full flex flex-col items-center justify-center p-6 gap-8 relative overflow-hidden"
 		>
-			<div className="absolute inset-0 pointer-events-none">
+			<div className="absolute inset-0">
 				<CurrencyRain density={40} />
 			</div>
 			{/* Header with title and back button */}
-<div className="absolute top-4 left-4 z-10">
+<div className="absolute top-4 left-4 z-10 pointer-events-auto">
 			<motion.button
 				whileHover={{ x: -4 }}
 				whileTap={{ scale: 0.95 }}
@@ -65,7 +65,7 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 				What's your vice?
 			</motion.h2>
 
-			<div className="flex flex-col md:flex-row gap-4 w-full max-w-2xl">
+			<div className="flex flex-col md:flex-row gap-4 w-full max-w-2xl pointer-events-auto">
 				<motion.button
 					custom={0}
 					variants={cardVariants}
@@ -74,7 +74,7 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 					whileHover="hover"
 					whileTap={{ scale: 0.96 }}
 					onClick={() => handleSelect('recurring')}
-					className="flex-1 glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:border-brand-neon transition-colors group"
+					className="flex-1 glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:border-brand-neon transition-colors group pointer-events-auto"
 				>
 					<motion.div
 						whileHover={{ rotate: 10, scale: 1.1 }}
@@ -94,7 +94,7 @@ export const ForkSlide = ({ onNext, onBack }: Props) => {
 					whileHover="hover"
 					whileTap={{ scale: 0.96 }}
 					onClick={() => handleSelect('one-off')}
-					className="flex-1 glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:border-brand-purple transition-colors group"
+					className="flex-1 glass-panel p-8 rounded-2xl flex flex-col items-center gap-4 hover:border-brand-purple transition-colors group pointer-events-auto"
 				>
 					<motion.div
 						whileHover={{ rotate: -10, scale: 1.1 }}
