@@ -66,7 +66,7 @@ A cinematic, high-performance web application that visualizes the opportunity co
    ```bash
    # Backend configuration
    cp .env.example .env
-   
+
    # Frontend configuration
    cp frontend/.env.example frontend/.env
    ```
