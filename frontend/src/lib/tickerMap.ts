@@ -259,7 +259,7 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
     { name: 'AirPods 4', ticker: 'AAPL', rtp: 129, releaseDate: '2024-09-20', aliases: ['airpods 4', 'airpods 4 standard'] },
     { name: 'AirPods 4 (ANC)', ticker: 'AAPL', rtp: 179, releaseDate: '2024-09-20', aliases: ['airpods 4 anc', 'airpods 4 noise cancelling'] },
     { name: 'AirPods Pro (2nd Gen)', ticker: 'AAPL', rtp: 249, releaseDate: '2022-09-23', aliases: ['airpods pro', 'airpodspro', 'airpods pro 2'] },
-    { name: 'AirPods Max', ticker: 'AAPL', rtp: 549, releaseDate: '2020-12-15', aliases: ['airpods max', 'apple headphones'] }
+    { name: 'AirPods Max', ticker: 'AAPL', rtp: 549, releaseDate: '2020-12-15', aliases: ['airpods max', 'apple headphones'] },
 
     // --- Samsung Smartphones: Foldables (Z Fold Series) ---
     { name: 'Samsung Galaxy Z Fold 6', ticker: '005930.KS', rtp: 1899, releaseDate: '2024-07-24', aliases: ['z fold 6', 'fold 6', 'z fold6', 'galaxy fold 6'] },
