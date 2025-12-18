@@ -32,9 +32,26 @@ export function convertPrice(priceGBP: number, targetCurrency: string): number {
  * @returns Exchange rate
  */
 export function getExchangeRate(fromCurrency: string, toCurrency: string): number {
-	if (fromCurrency === toCurrency) return 1.0;
-	if (fromCurrency !== 'GBP') return 1.0; // Only GBP conversions supported for now
-	return EXCHANGE_RATES[toCurrency] ?? 1.0;
+	const from = fromCurrency.toUpperCase();
+	const to = toCurrency.toUpperCase();
+	if (from === to) return 1.0;
+	const fromRate = EXCHANGE_RATES[from];
+	const toRate = EXCHANGE_RATES[to];
+	if (!fromRate || !toRate) return 1.0;
+	// Rates are expressed as: 1 GBP = EXCHANGE_RATES[currency]
+	// Convert from 'from' to 'to': amount_in_to = amount_in_from * (toRate / fromRate)
+	return toRate / fromRate;
+}
+
+/**
+ * Converts an amount between arbitrary currencies using GBP-anchored rates.
+ * @param amount - Source amount
+ * @param fromCurrency - Source ISO code
+ * @param toCurrency - Target ISO code
+ */
+export function convertBetween(amount: number, fromCurrency: string, toCurrency: string): number {
+  const rate = getExchangeRate(fromCurrency, toCurrency);
+  return Math.round(amount * rate * 100) / 100;
 }
 
 /**

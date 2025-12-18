@@ -75,9 +75,9 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 	 			setResolved(null);
 		} else if (mode === 'recurring') {
 			const filtered = SUBSCRIPTION_TICKERS
-				.filter((s) => s.name.toLowerCase().includes(query))
-					.map((s) => ({ label: s.name, ticker: s.ticker, price: convertPrice(s.defaultCost, currency) }));
-				setSuggestions(filtered);
+				.filter((s) => s.name.toLowerCase().includes(query) || s.aliases?.some(a => a.toLowerCase().includes(query)))
+				.map((s) => ({ label: s.name, ticker: s.ticker, price: convertPrice(s.defaultCost, currency) }));
+			setSuggestions(filtered);
 		} else {
 			const filtered = PRODUCT_DATABASE
 				.filter((p) => p.name.toLowerCase().includes(query) || p.aliases.some((a) => a.includes(query)))
@@ -214,7 +214,7 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 							initial={{ scale: 0.9, opacity: 0 }}
 							animate={{ scale: 1, opacity: 1 }}
 							exit={{ scale: 0.9, opacity: 0 }}
-							className="glass-panel p-6 rounded-2xl w-full max-w-sm"
+							className="glass-panel glass-panel-opaque p-6 rounded-2xl w-full max-w-sm"
 							onClick={e => e.stopPropagation()}
 						>
 							<div className="flex justify-between items-center mb-4">

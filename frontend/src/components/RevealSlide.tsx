@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import { useCountUp } from '../lib/useCountUp';
 import CurrencyRain from './CurrencyRain';
+import { convertBetween } from '../lib/currency';
 
 interface Props {
 	onBack: () => void;
@@ -113,7 +114,15 @@ export const RevealSlide = ({ onBack }: Props) => {
 					const res = await fetch(`${apiUrl}/api/stock?symbol=${ticker}`);
 					const data = await res.json();
 					if (data.error) throw new Error(`Failed to fetch ${ticker}: ${data.error}`);
-					return { ticker, history: data.history };
+					const stockCurrency: string | undefined = data.currency;
+					const targetCurrency = basket[0]?.currency ?? 'GBP';
+					const convertedHistory = Array.isArray(data.history)
+						? data.history.map((p: { date: string; adjClose: number }) => ({
+							date: p.date,
+							adjClose: stockCurrency ? convertBetween(p.adjClose, stockCurrency, targetCurrency) : p.adjClose,
+						  }))
+						: [];
+					return { ticker, history: convertedHistory };
 				});
 
 				const stockDataArray = await Promise.all(stockDataPromises);
@@ -214,7 +223,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 					>
 						The Verdict
 					</motion.h2>
-					<h1 className="text-3xl md:text-5xl font-bold leading-tight">
+					<h1 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight">
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
@@ -227,7 +236,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.5, ease: "easeOut" }}
-							className="text-red-400 inline-block"
+							className="text-red-400 inline-block ms-1"
 						>
 							{formatter.format(animatedSpent)}
 						</motion.span>
@@ -235,7 +244,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
-							className="inline-block"
+							className="inline-block ms-1"
 						>
 							{' '}on{' '}
 						</motion.span>
@@ -260,7 +269,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 0.5, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.9, ease: "easeOut" }}
-							className="inline-block"
+							className="inline-block mt-1"
 						>
 							If you invested that in those stocks instead, you'd have{' '}
 						</motion.span>
@@ -268,7 +277,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 1.1, ease: "easeOut" }}
-							className="text-brand-neon inline-block"
+							className="text-brand-neon inline-block ms-1"
 						>
 							{formatter.format(animatedInvestment)}
 						</motion.span>

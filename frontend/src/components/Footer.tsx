@@ -35,10 +35,7 @@ export const Footer = () => {
 				{/* Disclaimers */}
 				<div className="space-y-2 text-xs text-gray-500">
 					<p className="text-center leading-relaxed">
-						<strong>Estimates only:</strong> Calculations assume consistent stock growth, ignore trading costs, taxes, and dividends. Not financial advice.
-					</p>
-					<p className="text-center leading-relaxed">
-						Analysis based on adjusted close prices. Past performance is not indicative of future results.
+						<strong>Estimates only:</strong> Calculations assume consistent stock growth, ignore trading costs, taxes, and dividends. Analysis based on adjusted close prices. Past performance is not indicative of future results. <strong>Not financial advice.</strong>
 					</p>
 				</div>
 			</div>
