@@ -25,7 +25,7 @@ app.get('/', (c) => {
 	return c.text('StocksVsSubscription API is running!')
 })
 
-const CACHE_DURATION_SECONDS = 60 * 60 * 12; // 12 hours
+const CACHE_DURATION_SECONDS = 60 * 60 * 24 * 7; // 1 week
 
 app.get('/api/stock', async (c) => {
 	const symbol = c.req.query('symbol')
