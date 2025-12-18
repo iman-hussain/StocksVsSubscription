@@ -29,25 +29,28 @@ export interface SimulationResult {
 
 // Helper to find closest price (backward lookup / fill-forward)
 function getPriceOnDate(dateStr: string, history: StockDataPoint[]): number | null {
-	// Assuming history is sorted ascending by date
-	// Find index of date
-	// optimize: history is usually 5000+ items.
-	// Linear search from end might be slow if random access, but here we iterate forward usually.
-	// For random access:
+	if (!history.length) return null;
 
-	// Simple approach: find exact match, or use closest previous.
-	// history is sorted by date? Yahoo returns sorted. We should ensure it.
+	// OPTIMIZATION: Check bounds immediately to avoid iterating.
+	// This fixes the freeze when comparing dates far in the past (e.g., 1963)
+	// against stocks that didn't exist then (e.g., Sony on NYSE started ~1970).
+	if (dateStr < history[0].date) {
+		return null;
+	}
+	if (dateStr >= history[history.length - 1].date) {
+		return history[history.length - 1].adjClose;
+	}
 
 	const targetDate = new Date(dateStr).getTime();
 
-	// Iterate backwards?
+	// Iterate backwards
 	for (let i = history.length - 1; i >= 0; i--) {
 		const hDate = new Date(history[i].date).getTime();
 		if (hDate <= targetDate) {
 			return history[i].adjClose;
 		}
 	}
-	return null; // Date is before history starts
+	return null; // Should be covered by boundary check, but fallback
 }
 
 export function calculateComparison(

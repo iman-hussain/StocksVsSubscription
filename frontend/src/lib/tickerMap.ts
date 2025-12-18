@@ -419,7 +419,7 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
 
     // --- Vehicles ---
     // Hyundai
-    { name: 'Hyundai i40 Estate', ticker: 'HYMTF', rtp: 28000, releaseDate: '2011-09-01', aliases: ['hyundai i40', 'i40 estate', 'i40 tourer', 'i40'] },
+    { name: 'Hyundai i40 Estate', ticker: 'HYMLF', rtp: 28000, releaseDate: '2011-09-01', aliases: ['hyundai i40', 'i40 estate', 'i40 tourer', 'i40'] },
 
     // Honda
     { name: 'Honda Civic 2014', ticker: 'HMC', rtp: 18390, releaseDate: '2014-01-08', aliases: ['civic 2014', '2014 civic', 'honda civic'] },
