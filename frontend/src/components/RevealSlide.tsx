@@ -230,7 +230,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
 							className="inline-block"
 						>
-							You spent{' '}
+							You spent {' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
@@ -246,7 +246,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
 							className="inline-block ms-1"
 						>
-							{' '}on{' '}
+							{' '} on {' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
@@ -271,7 +271,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							transition={{ duration: 0.6, delay: 0.9, ease: "easeOut" }}
 							className="inline-block mt-1"
 						>
-							If you invested that in those stocks instead, you'd have{' '}
+							If you invested that in those stocks instead, you'd have {' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}

@@ -40,10 +40,6 @@ export const IntroSlide = ({ onNext }: Props) => {
 			<div className="absolute inset-0 pointer-events-none">
 				<CurrencyRain density={40} />
 			</div>
-			{/* Header title */}
-			<div className="absolute top-6 left-0 right-0 flex items-center justify-center z-10">
-				<h1 className="text-lg text-gray-400 whitespace-nowrap">Stocks vs Subscriptions</h1>
-			</div>
 
 			<motion.div
 				variants={containerVariants}
@@ -51,11 +47,17 @@ export const IntroSlide = ({ onNext }: Props) => {
 				animate="visible"
 				className="z-10 flex flex-col items-center gap-8 max-w-md w-full"
 			>
+				<motion.h1
+					variants={itemVariants}
+					className="text-5xl md:text-6xl font-bold"
+				>
+					Stocks vs Subscriptions
+				</motion.h1>
 				<motion.h2
 					variants={itemVariants}
 					className="text-2xl md:text-3xl font-bold tracking-tight text-white"
 				>
-					See what your spending could have become.
+				See what your spending could have become.
 				</motion.h2>
 
 				<motion.p variants={itemVariants} className="text-gray-400 text-lg">
