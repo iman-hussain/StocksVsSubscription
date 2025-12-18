@@ -10,55 +10,76 @@ A cinematic, high-performance web application that visualizes the opportunity co
 
 ## ✨ Features
 
-*   **Cinematic "Wizard" UI**: A 4-step immersive flow (Intro -> Choice -> Build -> Reveal).
-*   **Real Financial Logic**:
-    *   **Pre-IPO Handling**: Holds cash if the start date is before the stock's IPO.
-    *   **Market Closures**: "Fill-forward" logic for weekends and holidays.
-    *   **Adjusted Close**: Accounts for stock splits and dividends.
-*   **Performance**:
-    *   **Redis Caching**: Caches stock data for 12 hours to minimize API usage.
-    *   **Optimistic UI**: Debounced search and instant transitions using `framer-motion`.
-*   **Tech Stack**:
-    *   **Frontend**: React (Vite), TailwindCSS v4, Zustand, Recharts, Framer Motion.
-    *   **Backend**: Hono (Node.js), Yahoo Finance 2, Redis (ioredis).
-    *   **Infra**: Docker, Coolify.
+* **Cinematic "Wizard" UI**: A 4-step immersive flow (Intro -> Choice -> Build -> Reveal).
+* **Automatic Product Detection**:
+  * **Subscriptions**: Type "Netflix" or "Spotify" → auto-resolves to NFLX/SPOT with typical monthly cost.
+  * **One-Off Products**: Type "iPhone" or "iPhone 15 Pro Max" → auto-detects AAPL ticker and £999 RRP.
+  * **Fuzzy Matching**: Handles variations ("PS5" → PlayStation 5, "MacBook Pro" → AAPL) with intelligent keyword matching.
+* **Real Financial Logic**:
+  * **Pre-IPO Handling**: Holds cash if the start date is before the stock's IPO.
+  * **Market Closures**: "Fill-forward" logic for weekends and holidays.
+  * **Adjusted Close**: Accounts for stock splits and dividends.
+  * **Multi-Stock Portfolio**: Compare multiple items against their respective company stocks simultaneously.
+* **Performance**:
+  * **Redis Caching**: Caches stock data for 12 hours to minimise API usage.
+  * **Optimistic UI**: Debounced search and instant transitions using `framer-motion`.
+  * **Smooth Animations**: Animated growth percentage counter with easing functions.
+* **Tech Stack**:
+  * **Frontend**: React (Vite), TailwindCSS v4, Zustand, Recharts, Framer Motion.
+  * **Backend**: Hono (Node.js), Yahoo Finance 2, Redis (ioredis).
+  * **Infra**: Docker, Coolify.
 
 ## 🛠️ Tech Stack
 
-*   **Monorepo**: Managed via npm workspaces concept (concurrently).
-*   **Client**: `client/` (React + Vite).
-*   **Server**: `server/` (Hono).
-*   **Database**: Redis (for caching).
-*   **Deployment**: Docker.
+* **Monorepo**: Managed via npm workspaces concept (concurrently).
+* **Frontend**: `frontend/` (React + Vite + TypeScript).
+* **Backend**: `backend/` (Hono + TypeScript).
+* **Database**: Redis (for caching, optional).
+* **Deployment**: Docker.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   Node.js 20+
-*   Docker (optional, for production build)
+
+* Node.js 20+
+* Docker (optional, for production build)
 
 ### Local Development
 
-1.  **Clone the repo**
-    ```bash
-    git clone https://github.com/iman-hussain/StocksVsSubscription.git
-    cd StocksVsSubscription
-    ```
+1. **Clone the repo**
 
-2.  **Install Dependencies**
-    ```bash
-    npm run install:all
-    ```
-    *(Or run `npm install` in root, client, and server)*
+   ```bash
+   git clone https://github.com/iman-hussain/StocksVsSubscription.git
+   cd StocksVsSubscription
+   ```
 
-3.  **Start Dev Server**
-    ```bash
-    npm run dev
-    ```
-    *   **Client**: http://localhost:5173
-    *   **Server**: http://localhost:3000
+2. **Install Dependencies**
 
-    *Note: Without a local Redis instance running, the server will silently fall back to in-memory caching.*
+   ```bash
+   npm install
+   ```
+
+3. **Start Dev Server**
+
+   ```bash
+   npm run dev
+   ```
+
+   * **Frontend**: [http://localhost:5173](http://localhost:5173) (fallback 5174, 5175)
+   * **Backend**: [http://localhost:3000](http://localhost:3000)
+
+   *Note: Without a local Redis instance running, the server will silently fall back to in-memory caching.*
+
+### Windows Quick Start
+
+Simply double-click `start_local.bat` in the root directory. This will:
+
+* Check for Node.js and npm
+* Install dependencies
+* Launch both frontend and backend servers
+* Keep terminal open for logs
+
+To stop, run `stop_local.bat` to kill servers on ports 3000/5173/5174.
 
 ### Production (Docker)
 
@@ -66,23 +87,34 @@ To run the full stack with Redis:
 
 ```bash
 docker-compose up --build
+```bash
+docker-compose up --build
 ```
-Access the app at `http://localhost:3000`.
+
+Access the app at [http://localhost:3000](http://localhost:3000).
 
 ## 📂 Project Structure
 
-```
+```text
 .
-├── client/                 # React Frontend
-│   ├── src/lib/financials  # Core investment math logic
-│   └── src/components      # Wizard slides
-├── server/                 # Hono Backend
+├── frontend/               # React Frontend
+│   ├── src/lib/
+│   │   ├── financials.ts   # Core investment math logic
+│   │   ├── tickerMap.ts    # Subscription & product database with fuzzy matching
+│   │   └── useCountUp.ts   # Animation hook for percentage counter
+│   └── src/components/     # Wizard slide components
+│       ├── IntroSlide.tsx  # Welcome screen
+│       ├── ForkSlide.tsx   # Mode selection (recurring vs one-off)
+│       ├── BuilderSlide.tsx # Item addition with presets
+│       └── RevealSlide.tsx # Results & chart visualisation
+├── backend/                # Hono Backend
 │   ├── lib/cache.ts        # Redis wrapper
-│   └── index.ts            # API routes
+│   └── index.ts            # API routes (/api/stock, /api/search)
+├── start_local.bat         # Windows dev launcher
+├── stop_local.bat          # Windows process killer
 ├── docs/                   # Documentation
-├── Dockerfile              # Produciton Image
-└── docker-compose.yml      # Local/Prod Orchestration
-```
+├── Dockerfile              # Production image
+└── docker-compose.yml      # Local/Prod orchestration
 
 ## 📄 License
 MIT
