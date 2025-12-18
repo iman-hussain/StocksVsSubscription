@@ -76,11 +76,11 @@ Redis provides persistent caching. Without it, the cache is lost on container re
 
 In the resource settings:
 
-| Setting                 | Value      |
-| ----------------------- | ---------- |
-| **Build Pack**          | Dockerfile |
-| **Dockerfile Location** | `Dockerfile` |
-| **Base Directory**      | `/backend` |
+| Setting | Value |
+| --- | --- |
+| Build Pack | Dockerfile |
+| Dockerfile Location | Dockerfile |
+| Base Directory | /backend |
 
 ### 3.3 Configure Environment Variables
 
@@ -142,11 +142,11 @@ StocksVsSubscription API is running!
 
 ### 4.2 Configure Build Settings
 
-| Setting                 | Value      |
-| ----------------------- | ---------- |
-| **Build Pack**          | Dockerfile |
-| **Dockerfile Location** | `Dockerfile` |
-| **Base Directory**      | `/frontend` |
+| Setting | Value |
+| --- | --- |
+| Build Pack | Dockerfile |
+| Dockerfile Location | Dockerfile |
+| Base Directory | /frontend |
 
 ### 4.3 Configure Build Arguments
 

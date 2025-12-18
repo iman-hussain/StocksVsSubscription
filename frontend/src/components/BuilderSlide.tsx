@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, ArrowRight, ChevronLeft, X } from 'lucide-react';
 import { getSubscriptionPresets, getOneOffPresets, resolveTicker, resolveProduct, SUBSCRIPTION_TICKERS, PRODUCT_DATABASE } from '../lib/tickerMap';
+import { resolveQuery, type ResolveResponse } from '../lib/api';
 import { convertPrice, getCurrencySymbol } from '../lib/currency';
 
 interface Props {
@@ -31,7 +32,9 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 	const [presetDate, setPresetDate] = useState('2020-01-01');
 	const [presetPricingPeriod, setPresetPricingPeriod] = useState<'monthly' | 'yearly'>('monthly');
 	const [customPricingPeriod, setCustomPricingPeriod] = useState<'monthly' | 'yearly'>('monthly');
-	const [suggestions, setSuggestions] = useState<Array<{ label: string; ticker: string; price: number; date?: string }>>([]);
+	 const [suggestions, setSuggestions] = useState<Array<{ label: string; ticker: string; price?: number; date?: string; score?: number }>>([]);
+	 const [resolved, setResolved] = useState<ResolveResponse | null>(null);
+	 const debounceTimer = useRef<number | null>(null);
 
 	// Get presets from ticker map
 	const subscriptionPresets = getSubscriptionPresets();
@@ -62,23 +65,24 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 		setPresetPricingPeriod('monthly');
 	};
 
-	const handleNameChange = (value: string) => {
+	 const handleNameChange = (value: string) => {
 		setName(value);
 
 		// Build autocomplete suggestions
 		const query = value.toLowerCase().trim();
 		if (!query) {
 			setSuggestions([]);
+	 			setResolved(null);
 		} else if (mode === 'recurring') {
 			const filtered = SUBSCRIPTION_TICKERS
 				.filter((s) => s.name.toLowerCase().includes(query))
-				.map((s) => ({ label: s.name, ticker: s.ticker, price: convertPrice(s.defaultCost, currency) }));
-			setSuggestions(filtered);
+					.map((s) => ({ label: s.name, ticker: s.ticker, price: convertPrice(s.defaultCost, currency) }));
+				setSuggestions(filtered);
 		} else {
 			const filtered = PRODUCT_DATABASE
 				.filter((p) => p.name.toLowerCase().includes(query) || p.aliases.some((a) => a.includes(query)))
-				.map((p) => ({ label: p.name, ticker: p.ticker, price: convertPrice(p.rtp, currency), date: p.releaseDate }));
-			setSuggestions(filtered);
+					.map((p) => ({ label: p.name, ticker: p.ticker, price: convertPrice(p.rtp, currency), date: p.releaseDate }));
+				setSuggestions(filtered);
 		}
 
 		// Auto-detect one-off products when in one-off mode
@@ -98,14 +102,66 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 				setDetectedProduct(null);
 			}
 		}
+
+		// Fire off async backend resolve (debounced via effect)
 	};
 
-	const handleSuggestionPick = (item: { label: string; ticker: string; price: number; date?: string }) => {
+	// Debounced remote resolve for suggestions and best ticker
+	useEffect(() => {
+		if (debounceTimer.current) {
+			window.clearTimeout(debounceTimer.current);
+		}
+
+		if (!name.trim() || name.trim().length < 2) {
+			setResolved(null);
+			return;
+		}
+
+		debounceTimer.current = window.setTimeout(async () => {
+			try {
+				const res = await resolveQuery(name.trim(), {
+					purchase: mode === 'one-off',
+					limit: 5,
+					currency: currency,
+				});
+				setResolved(res);
+
+				// Merge backend candidates into current suggestions by distinct ticker
+				setSuggestions(prev => {
+					const seen = new Set(prev.map(p => p.ticker));
+					const remote = (res.candidates || []).map(c => ({
+						label: (c.shortName || c.longName || c.symbol || '').toString(),
+						ticker: c.symbol,
+						score: c.score,
+					})).filter(r => !seen.has(r.ticker));
+					const merged = [...prev, ...remote];
+					return merged.slice(0, 8);
+				});
+			} catch {
+				// ignore resolve errors for UX; keep local suggestions
+				setResolved(null);
+			}
+		}, 300);
+
+		return () => {
+			if (debounceTimer.current) {
+				window.clearTimeout(debounceTimer.current);
+				debounceTimer.current = null;
+			}
+		};
+	}, [name, mode, currency]);
+
+
+	const handleSuggestionPick = (item: { label: string; ticker: string; price?: number; date?: string }) => {
 		setName(item.label);
-		setCost(item.price.toString());
-		setDate(item.date ?? date);
+			if (typeof item.price === 'number') setCost(item.price.toString());
+			if (item.date) setDate(item.date);
 		if (mode === 'one-off') {
-			setDetectedProduct({ name: item.label, cost: item.price, ticker: item.ticker, releaseDate: item.date ?? date });
+				if (typeof item.price === 'number') {
+					setDetectedProduct({ name: item.label, cost: item.price, ticker: item.ticker, releaseDate: item.date ?? date });
+				} else {
+					setDetectedProduct(null);
+				}
 		} else {
 			setDetectedProduct(null);
 		}
@@ -114,12 +170,13 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 
 	const handleAdd = () => {
 		if (!name || !cost) return;
+			const chosenTicker = (detectedProduct?.ticker) || (resolved?.best?.symbol) || resolveTicker(name);
 		addToBasket({
 			name,
 			cost: parseFloat(cost),
 			currency: currency,
 			startDate: date,
-			ticker: resolveTicker(name),
+				ticker: chosenTicker,
 			pricingPeriod: mode === 'recurring' ? customPricingPeriod : undefined,
 		});
 		setName('');
@@ -287,7 +344,9 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 									className="text-left text-xs bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors"
 								>
 									<div className="font-semibold truncate">{s.label} ({s.ticker})</div>
-									<div className="text-gray-400">{getCurrencySymbol(currency)}{s.price.toFixed(2)}</div>
+									{typeof s.price === 'number' && (
+									  <div className="text-gray-400">{getCurrencySymbol(currency)}{s.price.toFixed(2)}</div>
+									)}
 								</button>
 							))}
 						</div>

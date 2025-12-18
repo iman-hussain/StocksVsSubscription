@@ -188,13 +188,8 @@ export const RevealSlide = ({ onBack }: Props) => {
 				</motion.button>
 			</div>
 
-			{/* Verdict Section - STRICTLY FADE ONLY */}
-			<motion.div
-				initial={{ opacity: 0 }}
-				animate={{ opacity: 1 }}
-				transition={{ duration: 1, ease: "easeInOut" }}
-				className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6"
-			>
+			{/* Verdict Section - No animation on text */}
+			<div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
 				<div>
 					<h2 className="text-gray-400 uppercase tracking-widest text-sm font-bold mb-2">The Verdict</h2>
 					<h1 className="text-3xl md:text-5xl font-bold leading-tight">
@@ -211,17 +206,11 @@ export const RevealSlide = ({ onBack }: Props) => {
 
 				<div>
 					<div className="text-sm text-gray-400">Total Return</div>
-					{/* Removed scale animation completely to prevent any "pop" or "spin" illusion */}
-					<motion.div
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						transition={{ duration: 1, delay: 0.3, ease: "easeInOut" }}
-						className={`text-6xl font-black tracking-tighter ${result.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`}
-					>
+					<div className={`text-6xl font-black tracking-tighter ${result.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`}>
 						{result.growthPercentage > 0 ? '+' : ''}{animatedGrowth.toFixed(0)}%
-					</motion.div>
+					</div>
 				</div>
-			</motion.div>
+			</div>
 
 			{/* Main Portfolio Graph */}
 			<motion.div
