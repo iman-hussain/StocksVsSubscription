@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import YahooFinance from 'yahoo-finance2'
 import { cache as stockCache } from './lib/cache.js'
+import { resolveTicker } from './lib/resolve.js'
 
 // Instantiate yahoo-finance2 v3 client
 const yahooFinance = new YahooFinance();
@@ -26,6 +27,7 @@ app.get('/', (c) => {
 })
 
 const CACHE_DURATION_SECONDS = 60 * 60 * 24 * 7; // 1 week
+const RESOLVE_CACHE_SECONDS = 60 * 60 * 24 * 30; // 30 days for name->ticker resolution
 
 app.get('/api/stock', async (c) => {
 	const symbol = c.req.query('symbol')
@@ -97,6 +99,62 @@ app.get('/api/stock', async (c) => {
 		}
 
 		return c.json({ error: 'Failed to fetch stock data', details: message }, 500)
+	}
+})
+
+// Resolve a free-form query (company/brand/product) to ticker candidates
+app.get('/api/resolve', async (c) => {
+	const query = c.req.query('q')?.trim()
+	if (!query) return c.json({ error: 'Missing query' }, 400)
+
+	const preferred = c.req.query('preferred')?.split(',').map(s => s.trim()).filter(Boolean) ?? []
+	const currency = c.req.query('currency')?.trim()
+	const limit = Math.max(1, Math.min(10, parseInt(c.req.query('limit') ?? '5', 10)))
+
+	const cacheKey = `resolve:${query.toLowerCase()}:${preferred.join('|')}:${currency ?? ''}:${limit}`
+	const cached = await stockCache.get(cacheKey)
+	if (cached) return c.json(cached)
+
+	try {
+		const result = await resolveTicker(yahooFinance, query, { preferredExchanges: preferred, currency, limit })
+		await stockCache.set(cacheKey, result, RESOLVE_CACHE_SECONDS)
+		return c.json(result)
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : 'Unknown error'
+		console.error(`Error resolving ticker for '${query}':`, message)
+		return c.json({ error: 'Resolve failed', details: message }, 500)
+	}
+})
+
+// Resolve a purchase description (e.g. "Honeywell deskfan in 1990 for £10") to a ticker
+app.get('/api/resolve/purchase', async (c) => {
+	const description = c.req.query('q')?.trim()
+	if (!description) return c.json({ error: 'Missing query' }, 400)
+
+	const preferred = c.req.query('preferred')?.split(',').map(s => s.trim()).filter(Boolean) ?? []
+	const currency = c.req.query('currency')?.trim()
+	const limit = Math.max(1, Math.min(10, parseInt(c.req.query('limit') ?? '5', 10)))
+
+	// Basic sanitisation: drop prices, years, and filler words
+	const cleaned = description
+		.replace(/([£$€])\s?\d+(?:[.,]\d+)?/g, ' ')
+		.replace(/\b(19\d{2}|20\d{2})\b/g, ' ')
+		.replace(/\b(bought|purchase|purchased|for|in|at|the|a|an|on|from)\b/gi, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+
+	const cacheKey = `resolvePurchase:${cleaned.toLowerCase()}:${preferred.join('|')}:${currency ?? ''}:${limit}`
+	const cached = await stockCache.get(cacheKey)
+	if (cached) return c.json(cached)
+
+	try {
+		const result = await resolveTicker(yahooFinance, cleaned || description, { preferredExchanges: preferred, currency, limit })
+		await stockCache.set(cacheKey, result, RESOLVE_CACHE_SECONDS)
+		return c.json(result)
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : 'Unknown error'
+		console.error(`Error resolving ticker for purchase '${description}':`, message)
+		return c.json({ error: 'Resolve failed', details: message }, 500)
 	}
 })
 
