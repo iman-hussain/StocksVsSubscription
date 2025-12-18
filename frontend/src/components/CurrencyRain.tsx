@@ -18,11 +18,11 @@ const symbols = ['£', '$', '€', '¥'];
 
 // Size categories for visual variety
 const SizeCategory = {
-  TINY: { min: 20, max: 50, chance: 0.3 },
-  SMALL: { min: 50, max: 100, chance: 0.35 },
-  MEDIUM: { min: 100, max: 150, chance: 0.2 },
-  LARGE: { min: 150, max: 200, chance: 0.1 },
-  GIANT: { min: 200, max: 250, chance: 0.05 },
+  TINY: { min: 1, max: 100, chance: 0.50 },
+  SMALL: { min: 100, max: 200, chance: 0.10 },
+  MEDIUM: { min: 200, max: 300, chance: 0.20 },
+  LARGE: { min: 300, max: 400, chance: 0.10 },
+  GIANT: { min: 400, max: 500, chance: 0.10 },
 } as const;
 
 function pickSize(): number {
