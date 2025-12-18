@@ -441,6 +441,16 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
     { name: 'Laptop', ticker: 'DELL', rtp: 999, releaseDate: '2023-01-01', aliases: ['laptop', 'computer', 'pc'] },
     { name: 'Desktop PC', ticker: 'DELL', rtp: 1499, releaseDate: '2023-01-01', aliases: ['desktop', 'pc', 'desktop pc', 'gaming pc'] },
     { name: 'Phone', ticker: 'AAPL', rtp: 799, releaseDate: '2024-09-20', aliases: ['phone', 'smartphone'] },
+
+     // --- Audio: JBL Speakers ---
+    { name: 'JBL PartyBox Ultimate', ticker: '005930.KS', rtp: 999, releaseDate: '2023-08-31', aliases: ['partybox ultimate', 'jbl partybox', 'partybox', 'massive jbl speaker'] },
+    { name: 'JBL Flip 6', ticker: '005930.KS', rtp: 129, releaseDate: '2021-11-01', aliases: ['flip 6', 'jbl flip', 'small jbl speaker', 'flip6'] },
+
+    // --- Kitchen Appliances ---
+    // SharkNinja (SN) listed in 2023. Simulation will hold cash before then.
+    { name: 'Ninja Foodi Dual Zone Air Fryer', ticker: 'SN', rtp: 199, releaseDate: '2020-10-01', aliases: ['ninja air fryer', 'air fryer', 'dual zone air fryer', 'af300uk'] },
+    // Alternative: Philips Air Fryer (Ticker PHG has much longer history)
+    { name: 'Philips Airfryer XXL', ticker: 'PHG', rtp: 299, releaseDate: '2017-11-01', aliases: ['philips air fryer', 'airfryer xxl'] },
 ];
 
 /**
