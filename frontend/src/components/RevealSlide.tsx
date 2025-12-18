@@ -22,7 +22,7 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 			transition={{ duration: 0.5 }}
 			className="glass-panel p-4 rounded-2xl h-[300px] flex flex-col"
 		>
-			<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name}</h3>
+			<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name} ({item.ticker})</h3>
 				<div className="flex-1 min-h-0">
 				<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
 				<AreaChart data={result.graphData}>
@@ -37,11 +37,17 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 						</linearGradient>
 					</defs>
 					<CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-					<XAxis dataKey="date" tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} />
+					<XAxis
+						dataKey="date"
+						tick={{ fill: '#888', fontSize: 10 }}
+						tickLine={false}
+						axisLine={{ stroke: '#333' }}
+					/>
 					<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={70} />
 					<Tooltip
 						contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
-						formatter={(value: number) => formatter.format(value)}
+						formatter={(value: number | string | undefined) =>
+							typeof value === 'number' ? formatter.format(value) : ''}
 						labelStyle={{ color: '#888' }}
 					/>
 					<Area
@@ -75,6 +81,8 @@ export const RevealSlide = ({ onBack }: Props) => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
 	const animatedGrowth = useCountUp(result?.growthPercentage ?? 0, 2000);
+	const tickers = [...new Set(basket.map((item) => item.ticker))];
+	const tickersLabel = tickers.join(' + ');
 
 	useEffect(() => {
 		const fetchAndCalculate = async () => {
@@ -170,7 +178,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 			className="min-h-dvh w-full flex flex-col p-6 max-w-7xl mx-auto pt-12 pb-32 relative"
 		>
 			{/* Header with title and back button */}
-<div className="absolute top-4 left-4 z-10">
+<div className="fixed top-4 left-4 z-10">
 			<motion.button
 				whileHover={{ x: -4 }}
 				onClick={onBack}
@@ -189,12 +197,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 			>
 				<div>
 					<h2 className="text-gray-400 uppercase tracking-widest text-sm font-bold mb-2">The Verdict</h2>
-					<motion.h1
-						initial={{ opacity: 0, y: 10 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.6, delay: 0.2 }}
-						className="text-3xl md:text-5xl font-bold leading-tight"
-					>
+					<h1 className="text-3xl md:text-5xl font-bold leading-tight">
 						You spent <span className="text-red-400">{formatter.format(result.totalSpent)}</span>.
 						<br />
 						<span className="opacity-50">
@@ -203,7 +206,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 						<span className="text-brand-neon">
 							{formatter.format(result.investmentValue)}
 						</span>.
-					</motion.h1>
+					</h1>
 				</div>
 
 				<div>
@@ -226,21 +229,20 @@ export const RevealSlide = ({ onBack }: Props) => {
 				transition={{ duration: 0.6, delay: 0.2 }}
 				className="w-full h-[350px] glass-panel p-4 rounded-3xl relative mb-12 flex flex-col"
 			>
-				<h3 className="text-sm font-semibold text-gray-300 mb-4">Portfolio Growth (All Items Combined)</h3>
-				<div className="absolute top-14 left-6 z-10">
-					<p className="text-xs text-gray-400 mb-2 font-semibold">Legend:</p>
-					<div className="flex flex-col gap-2 text-xs">
-						<div className="flex items-center gap-2">
-							<div className="w-3 h-3 rounded-full bg-brand-neon opacity-70" />
-							<span className="text-gray-300">Portfolio Value</span>
+				<div className="flex items-center gap-4 mb-4 flex-wrap text-xs text-gray-300">
+					<h3 className="text-sm font-semibold text-gray-300">Portfolio Growth ({tickersLabel || 'SPY'})</h3>
+					<div className="flex items-center gap-3">
+						<div className="flex items-center gap-1">
+							<div className="w-3 h-3 rounded-full bg-brand-neon" />
+							<span>Portfolio Value</span>
 						</div>
-						<div className="flex items-center gap-2">
-							<div className="w-3 h-3 rounded-full bg-red-400 opacity-70" />
-							<span className="text-gray-300">Total Spent</span>
+						<div className="flex items-center gap-1">
+							<div className="w-3 h-3 rounded-full bg-red-400" />
+							<span>Total Spent</span>
 						</div>
 					</div>
 				</div>
-				<div className="flex-1 min-h-0" style={{ minHeight: 250 }}>
+				<div className="flex-1 min-h-0 relative" style={{ minHeight: 250 }}>
 				<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
 					<AreaChart data={result.graphData}>
 						<defs>
@@ -254,11 +256,17 @@ export const RevealSlide = ({ onBack }: Props) => {
 							</linearGradient>
 						</defs>
 						<CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-						<XAxis dataKey="date" tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} />
+						<XAxis
+							dataKey="date"
+							tick={{ fill: '#888', fontSize: 10 }}
+							tickLine={false}
+							axisLine={{ stroke: '#333' }}
+						/>
 						<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={80} />
 						<Tooltip
 							contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
-							formatter={(value: number) => formatter.format(value)}
+							formatter={(value: number | string | undefined) =>
+								typeof value === 'number' ? formatter.format(value) : ''}
 							labelStyle={{ color: '#888' }}
 						/>
 						<Area
@@ -282,6 +290,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 						/>
 					</AreaChart>
 				</ResponsiveContainer>
+				{/* Removed footer tickers text; title now shows tickers */}
 				</div>
 			</motion.div>
 

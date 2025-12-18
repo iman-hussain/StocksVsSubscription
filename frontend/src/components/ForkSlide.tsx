@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { useStore } from '../store';
 import { Repeat, ShoppingBag, ChevronLeft } from 'lucide-react';
 import CurrencyRain from './CurrencyRain';
@@ -8,15 +8,15 @@ interface Props {
 	onBack: () => void;
 }
 
-const cardVariants = {
+const cardVariants: Variants = {
 	hidden: { opacity: 0, y: 20 },
-	visible: (index: number) => ({
+	visible: (custom: number) => ({
 		opacity: 1,
 		y: 0,
 		transition: {
-			delay: 0.2 + index * 0.15,
+			delay: 0.2 + custom * 0.15,
 			duration: 0.6,
-			ease: "easeOut"
+			ease: [0.16, 1, 0.3, 1]
 		}
 	}),
 	hover: {

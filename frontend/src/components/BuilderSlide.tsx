@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, ArrowRight, ChevronLeft, X } from 'lucide-react';
-import { getSubscriptionPresets, getOneOffPresets, resolveTicker, resolveProduct } from '../lib/tickerMap';
+import { getSubscriptionPresets, getOneOffPresets, resolveTicker, resolveProduct, SUBSCRIPTION_TICKERS, PRODUCT_DATABASE } from '../lib/tickerMap';
 import { convertPrice, getCurrencySymbol } from '../lib/currency';
 
 interface Props {
@@ -30,6 +30,8 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 	const [presetCost, setPresetCost] = useState('');
 	const [presetDate, setPresetDate] = useState('2020-01-01');
 	const [presetPricingPeriod, setPresetPricingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+	const [customPricingPeriod, setCustomPricingPeriod] = useState<'monthly' | 'yearly'>('monthly');
+	const [suggestions, setSuggestions] = useState<Array<{ label: string; ticker: string; price: number; date?: string }>>([]);
 
 	// Get presets from ticker map
 	const subscriptionPresets = getSubscriptionPresets();
@@ -63,6 +65,22 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 	const handleNameChange = (value: string) => {
 		setName(value);
 
+		// Build autocomplete suggestions
+		const query = value.toLowerCase().trim();
+		if (!query) {
+			setSuggestions([]);
+		} else if (mode === 'recurring') {
+			const filtered = SUBSCRIPTION_TICKERS
+				.filter((s) => s.name.toLowerCase().includes(query))
+				.map((s) => ({ label: s.name, ticker: s.ticker, price: convertPrice(s.defaultCost, currency) }));
+			setSuggestions(filtered);
+		} else {
+			const filtered = PRODUCT_DATABASE
+				.filter((p) => p.name.toLowerCase().includes(query) || p.aliases.some((a) => a.includes(query)))
+				.map((p) => ({ label: p.name, ticker: p.ticker, price: convertPrice(p.rtp, currency), date: p.releaseDate }));
+			setSuggestions(filtered);
+		}
+
 		// Auto-detect one-off products when in one-off mode
 		if (mode === 'one-off' && value.trim()) {
 			const product = resolveProduct(value);
@@ -82,6 +100,18 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 		}
 	};
 
+	const handleSuggestionPick = (item: { label: string; ticker: string; price: number; date?: string }) => {
+		setName(item.label);
+		setCost(item.price.toString());
+		setDate(item.date ?? date);
+		if (mode === 'one-off') {
+			setDetectedProduct({ name: item.label, cost: item.price, ticker: item.ticker, releaseDate: item.date ?? date });
+		} else {
+			setDetectedProduct(null);
+		}
+		setSuggestions([]);
+	};
+
 	const handleAdd = () => {
 		if (!name || !cost) return;
 		addToBasket({
@@ -90,6 +120,7 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 			currency: currency,
 			startDate: date,
 			ticker: resolveTicker(name),
+			pricingPeriod: mode === 'recurring' ? customPricingPeriod : undefined,
 		});
 		setName('');
 		setCost('');
@@ -103,7 +134,7 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 			className="min-h-dvh w-full flex flex-col p-6 pb-24 gap-6 max-w-2xl mx-auto items-center justify-center relative"
 		>
 			{/* Header with title and back button */}
-<div className="absolute top-4 left-4 z-10">
+<div className="fixed top-4 left-4 z-10">
 			<button
 				onClick={onBack}
 				className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
@@ -214,8 +245,8 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 					Build your {mode === 'recurring' ? 'Subscription Stack' : 'Shopping Cart'}
 				</h2>
 
-				{/* Presets - click to open modal */}
-				<div className="flex flex-wrap gap-2 justify-center">
+				{/* Presets - click to open modal (page handles scroll) */}
+				<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 justify-center max-h-40 overflow-y-auto pr-1">
 					{presets.map((p, idx) => (
 						<motion.button
 							key={p.name}
@@ -247,6 +278,20 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 						onChange={e => handleNameChange(e.target.value)}
 						className="bg-transparent border-b border-white/20 p-2 outline-none focus:border-brand-neon placeholder-gray-600"
 					/>
+					{suggestions.length > 0 && (
+						<div className="mt-2 bg-black/60 border border-white/10 rounded-xl p-3 grid grid-cols-2 gap-2 max-h-24 overflow-y-auto">
+							{suggestions.map((s, idx) => (
+								<button
+									key={`${s.label}-${idx}`}
+									onClick={() => handleSuggestionPick(s)}
+									className="text-left text-xs bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 transition-colors"
+								>
+									<div className="font-semibold truncate">{s.label} ({s.ticker})</div>
+									<div className="text-gray-400">{getCurrencySymbol(currency)}{s.price.toFixed(2)}</div>
+								</button>
+							))}
+						</div>
+					)}
 					<AnimatePresence>
 						{detectedProduct && (
 							<motion.div
@@ -260,11 +305,27 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 							</motion.div>
 						)}
 					</AnimatePresence>
+					{mode === 'recurring' && (
+						<div className="flex gap-2 text-xs">
+							<button
+								onClick={() => setCustomPricingPeriod('monthly')}
+								className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${customPricingPeriod === 'monthly' ? 'bg-brand-neon text-brand-dark' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
+							>
+								Monthly
+							</button>
+							<button
+								onClick={() => setCustomPricingPeriod('yearly')}
+								className={`flex-1 py-2 rounded-lg font-semibold transition-colors ${customPricingPeriod === 'yearly' ? 'bg-brand-neon text-brand-dark' : 'bg-white/10 text-gray-300 hover:bg-white/20'}`}
+							>
+								Yearly
+							</button>
+						</div>
+					)}
 					<div className="flex flex-col sm:flex-row gap-4">
 						<input
 							type="text"
 							inputMode="decimal"
-							placeholder={mode === 'recurring' ? "Monthly Cost" : "One-off Cost"}
+							placeholder={mode === 'recurring' ? `${customPricingPeriod === 'yearly' ? 'Yearly' : 'Monthly'} Cost` : "One-off Cost"}
 							value={cost}
 							onChange={e => setCost(e.target.value)}
 							className="flex-1 bg-transparent border-b border-white/20 p-2 outline-none focus:border-brand-neon placeholder-gray-600"
@@ -294,7 +355,7 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 							initial={{ opacity: 0, y: 20 }}
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0 }}
-							className="flex flex-col gap-2 max-h-[250px] overflow-y-auto pr-2"
+							className="flex flex-col gap-2"
 						>
 							<div className="text-sm text-gray-400 text-center mb-2">
 								{mode === 'recurring' ? (

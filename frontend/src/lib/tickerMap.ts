@@ -18,21 +18,43 @@ export interface ProductMapping {
 }
 
 export const SUBSCRIPTION_TICKERS: TickerMapping[] = [
-	{ name: 'Netflix', ticker: 'NFLX', defaultCost: 10.99 },
-	{ name: 'Spotify', ticker: 'SPOT', defaultCost: 10.99 },
-	{ name: 'Disney+', ticker: 'DIS', defaultCost: 7.99 },
-	{ name: 'Amazon Prime', ticker: 'AMZN', defaultCost: 8.99 },
-	{ name: 'Max', ticker: 'WBD', defaultCost: 9.99 },
-	{ name: 'YouTube Premium', ticker: 'GOOGL', defaultCost: 12.99 },
-	{ name: 'Apple Music', ticker: 'AAPL', defaultCost: 10.99 },
-	{ name: 'Google One', ticker: 'GOOGL', defaultCost: 7.99 },
-	{ name: 'Microsoft 365', ticker: 'MSFT', defaultCost: 5.99 },
-	{ name: 'Xbox Game Pass', ticker: 'MSFT', defaultCost: 10.99 },
-	{ name: 'PlayStation Plus', ticker: 'SONY', defaultCost: 10.99 },
-	{ name: 'iCloud+', ticker: 'AAPL', defaultCost: 2.99 },
-	{ name: 'Dropbox', ticker: 'DBX', defaultCost: 9.99 },
-	{ name: 'Adobe Creative Cloud', ticker: 'ADBE', defaultCost: 54.99 },
-	{ name: 'Gym', ticker: 'SPY', defaultCost: 45.00 }, // Fallback to S&P 500
+    // Existing Subscriptions
+    { name: 'Netflix', ticker: 'NFLX', defaultCost: 10.99 },
+    { name: 'Spotify', ticker: 'SPOT', defaultCost: 10.99 },
+    { name: 'Disney+', ticker: 'DIS', defaultCost: 7.99 },
+    { name: 'Amazon Prime', ticker: 'AMZN', defaultCost: 8.99 },
+    { name: 'Max', ticker: 'WBD', defaultCost: 9.99 },
+    { name: 'YouTube Premium', ticker: 'GOOGL', defaultCost: 12.99 },
+    { name: 'Apple Music', ticker: 'AAPL', defaultCost: 10.99 },
+    { name: 'Google One', ticker: 'GOOGL', defaultCost: 7.99 },
+    { name: 'Microsoft 365', ticker: 'MSFT', defaultCost: 5.99 },
+    { name: 'Xbox Game Pass', ticker: 'MSFT', defaultCost: 10.99 },
+    { name: 'PlayStation Plus', ticker: 'SONY', defaultCost: 10.99 },
+    { name: 'iCloud+', ticker: 'AAPL', defaultCost: 2.99 },
+    { name: 'Dropbox', ticker: 'DBX', defaultCost: 9.99 },
+    { name: 'Adobe Creative Cloud', ticker: 'ADBE', defaultCost: 54.99 },
+    { name: 'Gym', ticker: 'SPY', defaultCost: 45.00 }, // Fallback to S&P 500
+
+    // Common Western Additions (Streaming & Entertainment)
+    { name: 'Paramount+', ticker: 'PARA', defaultCost: 6.99 },
+    { name: 'Apple TV+', ticker: 'AAPL', defaultCost: 8.99 },
+    { name: 'Hulu', ticker: 'DIS', defaultCost: 7.99 }, // US Pricing (common in West)
+    { name: 'Peacock', ticker: 'CMCSA', defaultCost: 7.99 }, // US Pricing (Comcast)
+    { name: 'Audible', ticker: 'AMZN', defaultCost: 7.99 },
+    { name: 'Twitch', ticker: 'AMZN', defaultCost: 3.99 },
+    { name: 'Nintendo Switch Online', ticker: 'NTDOY', defaultCost: 3.49 },
+
+    // Lifestyle & Utilities
+    { name: 'Uber One', ticker: 'UBER', defaultCost: 5.99 },
+    { name: 'Deliveroo Plus', ticker: 'ROO', defaultCost: 3.49 }, // London Stock Exchange (ROO.L)
+    { name: 'Peloton App', ticker: 'PTON', defaultCost: 12.99 },
+    { name: 'Planet Fitness', ticker: 'PLNT', defaultCost: 24.99 },
+    { name: 'Walmart+', ticker: 'WMT', defaultCost: 12.95 }, // US Pricing
+
+    // Productivity & Tech
+    { name: 'Zoom', ticker: 'ZM', defaultCost: 12.99 },
+    { name: 'Slack', ticker: 'CRM', defaultCost: 8.75 }, // Salesforce
+    { name: 'ChatGPT Plus', ticker: 'MSFT', defaultCost: 16.00 }, // Fallback to Microsoft (OpenAI partner)
 ];
 
 /**
