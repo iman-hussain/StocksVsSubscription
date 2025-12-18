@@ -536,6 +536,8 @@ export function getOneOffPresets(): ProductMapping[] {
 		PRODUCT_DATABASE.find(p => p.name === 'PlayStation 5')!,
 		PRODUCT_DATABASE.find(p => p.name === 'Xbox Series X')!,
 		PRODUCT_DATABASE.find(p => p.name === 'iPad')!,
+		PRODUCT_DATABASE.find(p => p.name === 'Apple Watch')!,
+		PRODUCT_DATABASE.find(p => p.name === 'Samsung Galaxy S24')!,
 		PRODUCT_DATABASE.find(p => p.name === 'RTX 4090')!,
 	].filter(Boolean);
 }
