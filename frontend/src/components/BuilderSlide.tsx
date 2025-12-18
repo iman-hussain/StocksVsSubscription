@@ -188,10 +188,10 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 		<motion.div
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
-			className="min-h-dvh w-full flex flex-col p-6 pb-24 gap-6 max-w-2xl mx-auto relative"
+			className="min-h-dvh w-full flex flex-col p-6 pb-24 gap-6 max-w-2xl mx-auto relative z-10"
 		>
 			{/* Header with title and back button */}
-<div className="fixed top-4 left-4 z-10">
+<div className="fixed top-4 left-4 z-50">
 			<button
 				onClick={onBack}
 				className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
