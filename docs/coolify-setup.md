@@ -76,11 +76,11 @@ Redis provides persistent caching. Without it, the cache is lost on container re
 
 In the resource settings:
 
-| Setting                 | Value                 |
-| ----------------------- | --------------------- |
-| **Build Pack**          | Dockerfile            |
-| **Dockerfile Location** | `/backend/Dockerfile` |
-| **Base Directory**      | `/backend`            |
+| Setting                 | Value      |
+| ----------------------- | ---------- |
+| **Build Pack**          | Dockerfile |
+| **Dockerfile Location** | `Dockerfile` |
+| **Base Directory**      | `/backend` |
 
 ### 3.3 Configure Environment Variables
 
@@ -92,6 +92,8 @@ PORT=3000
 REDIS_URL=redis://svs-redis:6379
 CORS_ORIGIN=https://svs.imanhussain.com
 ```
+
+> **CRITICAL**: When adding `NODE_ENV=production`, make sure it is set to **"Runtime only"** in the Coolify UI, NOT "Available at Buildtime". If marked as available at buildtime, npm will skip installing devDependencies (like TypeScript), causing the build to fail with `tsc: not found`.
 
 > **Note**: Replace `svs-redis` with your actual Redis resource name if different.
 
@@ -127,11 +129,11 @@ StocksVsSubscription API is running!
 
 ### 4.2 Configure Build Settings
 
-| Setting                 | Value                  |
-| ----------------------- | ---------------------- |
-| **Build Pack**          | Dockerfile             |
-| **Dockerfile Location** | `/frontend/Dockerfile` |
-| **Base Directory**      | `/frontend`            |
+| Setting                 | Value      |
+| ----------------------- | ---------- |
+| **Build Pack**          | Dockerfile |
+| **Dockerfile Location** | `Dockerfile` |
+| **Base Directory**      | `/frontend` |
 
 ### 4.3 Configure Build Arguments
 

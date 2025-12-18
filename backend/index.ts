@@ -2,7 +2,7 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import YahooFinance from 'yahoo-finance2'
-import { cache as stockCache } from './lib/cache'
+import { cache as stockCache } from './lib/cache.js'
 
 // Instantiate yahoo-finance2 v3 client
 const yahooFinance = new YahooFinance();

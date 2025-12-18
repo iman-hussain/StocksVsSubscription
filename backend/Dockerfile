@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # Install all dependencies (including dev for build)
-RUN npm install
+# Explicitly include dev dependencies even if NODE_ENV=production is set at buildtime
+RUN npm install --include=dev
 
 # Copy source code
 COPY . .

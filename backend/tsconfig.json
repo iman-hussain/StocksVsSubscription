@@ -9,6 +9,12 @@
 		"outDir": "./dist",
 		"types": [
 			"node"
-		]
+		],
+		"resolveJsonModule": true,
+		"noEmit": false
+	},
+	"ts-node": {
+		"esm": true,
+		"experimentalEsm": true
 	}
 }
