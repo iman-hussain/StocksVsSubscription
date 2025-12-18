@@ -65,20 +65,21 @@ A cinematic, high-performance web application that visualizes the opportunity co
 
    ```bash
    # Backend configuration
-   cp .env.example .env
+   cp backend/.env.example backend/.env
 
    # Frontend configuration
    cp frontend/.env.example frontend/.env
    ```
 
-   **Backend (`.env`):**
+   **Backend (`backend/.env`):**
+
    * `NODE_ENV`: Set to `development` for local, `production` for deployed environments
    * `PORT`: Backend server port (default: 3000)
    * `REDIS_URL`: Redis connection URL (optional, recommended for production)
-     * Local: `redis://localhost:6379`
-     * Production: Your Redis host URL
+   * `CORS_ORIGIN`: Allowed frontend origins (comma-separated)
 
    **Frontend (`frontend/.env`):**
+
    * `VITE_API_URL`: Backend API URL
      * Local development: `http://localhost:3000`
      * Production: `https://api.svs.imanhussain.com`
@@ -131,53 +132,48 @@ docker-compose build
 
 ## 🌐 Deployment
 
-For detailed deployment instructions to production environments like Coolify, see [docs/coolify-setup.md](docs/coolify-setup.md).
+For detailed deployment instructions, see [docs/coolify-setup.md](docs/coolify-setup.md).
 
 **Production URLs:**
 
 * **Frontend**: [svs.imanhussain.com](https://svs.imanhussain.com)
 * **Backend API**: [api.svs.imanhussain.com](https://api.svs.imanhussain.com)
 
-**Environment Variables for Production:**
+**Quick Reference - Environment Variables:**
 
-1. **Backend** (`.env`):
-
-   ```env
-   NODE_ENV=production
-   PORT=3000
-   REDIS_URL=redis://your-redis-host:6379
-   ```
-
-2. **Frontend** (`frontend/.env` or build-time variables):
-
-   ```env
-   VITE_API_URL=https://api.svs.imanhussain.com
-   ```
-
-   *Note: Vite environment variables are baked into the frontend build at build-time, not runtime.*
+| Service              | Variable       | Production Value                    |
+| -------------------- | -------------- | ----------------------------------- |
+| Backend              | `NODE_ENV`     | `production`                        |
+| Backend              | `PORT`         | `3000`                              |
+| Backend              | `REDIS_URL`    | `redis://your-redis:6379`           |
+| Backend              | `CORS_ORIGIN`  | `https://svs.imanhussain.com`       |
+| Frontend (Build Arg) | `VITE_API_URL` | `https://api.svs.imanhussain.com`   |
 
 ## 📂 Project Structure
 
 ```text
 .
-├── frontend/               # React Frontend
+├── frontend/               # React Frontend (Nginx + Vite)
+│   ├── Dockerfile          # Frontend Docker build
+│   ├── nginx.conf          # Nginx configuration
+│   ├── .env.example        # Frontend environment template
 │   ├── src/lib/
 │   │   ├── financials.ts   # Core investment math logic
-│   │   ├── tickerMap.ts    # Subscription & product database with fuzzy matching
-│   │   └── useCountUp.ts   # Animation hook for percentage counter
+│   │   ├── tickerMap.ts    # Subscription & product database
+│   │   └── useCountUp.ts   # Animation hook
 │   └── src/components/     # Wizard slide components
-│       ├── IntroSlide.tsx  # Welcome screen
-│       ├── ForkSlide.tsx   # Mode selection (recurring vs one-off)
-│       ├── BuilderSlide.tsx # Item addition with presets
-│       └── RevealSlide.tsx # Results & chart visualisation
-├── backend/                # Hono Backend
+├── backend/                # Hono API Server
+│   ├── Dockerfile          # Backend Docker build
+│   ├── .env.example        # Backend environment template
 │   ├── lib/cache.ts        # Redis wrapper
-│   └── index.ts            # API routes (/api/stock, /api/search)
-├── start_local.bat         # Windows dev launcher
-├── stop_local.bat          # Windows process killer
+│   └── index.ts            # API routes
 ├── docs/                   # Documentation
-├── Dockerfile              # Production image
-└── docker-compose.yml      # Local/Prod orchestration
+│   └── coolify-setup.md    # Deployment guide
+├── docker-compose.yml      # Local development orchestration
+├── start_local.bat         # Windows dev launcher
+└── stop_local.bat          # Windows process killer
+```
 
-## 📄 License
+## 📄 Licence
+
 MIT

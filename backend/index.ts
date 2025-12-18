@@ -2,8 +2,6 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import YahooFinance from 'yahoo-finance2'
-import { serveStatic } from '@hono/node-server/serve-static'
-import { readFile } from 'fs/promises'
 import { cache as stockCache } from './lib/cache'
 
 // Instantiate yahoo-finance2 v3 client
@@ -11,7 +9,17 @@ const yahooFinance = new YahooFinance();
 
 const app = new Hono()
 
-app.use('/*', cors())
+// Configure CORS for cross-origin requests from frontend
+const corsOrigins = process.env.CORS_ORIGIN
+	? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+	: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
+
+app.use('/*', cors({
+	origin: corsOrigins,
+	allowMethods: ['GET', 'POST', 'OPTIONS'],
+	allowHeaders: ['Content-Type'],
+	maxAge: 86400,
+}))
 
 app.get('/', (c) => {
 	return c.text('StocksVsSubscription API is running!')
@@ -79,15 +87,16 @@ app.get('/api/stock', async (c) => {
 		await stockCache.set(cacheKey, data, CACHE_DURATION_SECONDS)
 		console.log(`Cached ${symbol}`)
 		return c.json(data)
-	} catch (err: any) {
-		console.error(`Error fetching ${symbol}: `, err.message || err)
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : 'Unknown error';
+		console.error(`Error fetching ${symbol}: `, message)
 
 		// Basic error handling logic
-		if (err.message && (err.message.includes('Not Found') || err.message.includes('404'))) {
+		if (message.includes('Not Found') || message.includes('404')) {
 			return c.json({ error: 'Company not found or delisted' }, 404)
 		}
 
-		return c.json({ error: 'Failed to fetch stock data', details: err.message }, 500)
+		return c.json({ error: 'Failed to fetch stock data', details: message }, 500)
 	}
 })
 
@@ -98,38 +107,20 @@ app.get('/api/search', async (c) => {
 	try {
 		const results = await yahooFinance.search(query)
 		return c.json(results)
-	} catch (err: any) {
-		console.error(`Error searching ${query}: `, err)
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : 'Unknown error';
+		console.error(`Error searching ${query}: `, message)
 		return c.json({ error: 'Search failed' }, 500)
 	}
 })
 
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
-console.log(`Server is running on port ${port} `)
 
-// Serve static files from 'static' directory (mapped to client/dist in Docker)
+console.log(`Server starting on port ${port}...`)
+console.log(`CORS origins: ${corsOrigins.join(', ')}`)
 
-
-// Only serve static in production; avoid noisy warnings in dev when folder is absent
-if (process.env.NODE_ENV === 'production') {
-	app.use('/*', serveStatic({ root: './static' }))
-}
-
-// SPA Fallback: serve index.html for unknown routes
-app.get('*', async (c) => {
-	if (process.env.NODE_ENV === 'production') {
-		try {
-			const html = await readFile('./static/index.html', 'utf-8')
-			return c.html(html)
-		} catch (e) {
-			return c.text('Not Found', 404)
-		}
-	}
-	return c.text('StocksVsSubscription API is running!', 200)
-})
-
-// @ts-ignore
 serve({
 	fetch: app.fetch,
 	port
 })
+
