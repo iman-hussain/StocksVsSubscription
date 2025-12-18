@@ -110,10 +110,17 @@ export const RevealSlide = ({ onBack }: Props) => {
 			try {
 				const uniqueTickers = [...new Set(basket.map(item => item.ticker))];
 
+				// Calculate the earliest start date from the basket
+				// Defaults to 1970-01-01 if something is wrong, but tries to use the item's date
+				const earliestDate = basket.reduce((min, item) => {
+					return item.startDate < min ? item.startDate : min;
+				}, new Date().toISOString().split('T')[0]);
+
 				// Use VITE_API_URL if set, otherwise use relative path (same-origin deployment)
 				const apiUrl = import.meta.env.VITE_API_URL || '';
 				const stockDataPromises = uniqueTickers.map(async (ticker) => {
-					const res = await fetch(`${apiUrl}/api/stock?symbol=${ticker}`);
+					// Pass startDate to backend to ensure we get enough history
+					const res = await fetch(`${apiUrl}/api/stock?symbol=${ticker}&startDate=${earliestDate}`);
 					const data = await res.json();
 					if (data.error) throw new Error(`Failed to fetch ${ticker}: ${data.error}`);
 					const stockCurrency: string | undefined = data.currency;
@@ -163,7 +170,8 @@ export const RevealSlide = ({ onBack }: Props) => {
 				exit={{ opacity: 0 }}
 				className="h-dvh flex flex-col items-center justify-center gap-4 relative overflow-hidden"
 			>
-				<div className="absolute inset-0">
+				{/* FIX: Explicit z-0 and pointer-events-none on the WRAPPER */}
+				<div className="absolute inset-0 z-0 pointer-events-none">
 					<CurrencyRain density={40} />
 				</div>
 				{/* Kept the spinner here as it is necessary for loading context,
@@ -271,7 +279,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							transition={{ duration: 0.6, delay: 0.9, ease: "easeOut" }}
 							className="inline-block mt-1"
 						>
-							If you invested in their stocks instead, you'd have {' '}
+							If you invested that in those stocks instead, you'd have {' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}

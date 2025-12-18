@@ -31,9 +31,13 @@ const RESOLVE_CACHE_SECONDS = 60 * 60 * 24 * 30; // 30 days for name->ticker res
 
 app.get('/api/stock', async (c) => {
 	const symbol = c.req.query('symbol')
+	// Allow frontend to specify start date (e.g. for 1963 purchase)
+	const requestedStartDate = c.req.query('startDate');
+
 	if (!symbol) return c.json({ error: 'Missing symbol' }, 400)
 
-	const cacheKey = `stock:${symbol.toUpperCase()} `
+	// Include start date in cache key to avoid serving 2000s data for a 1960s request
+	const cacheKey = `stock:${symbol.toUpperCase()}:${requestedStartDate || 'default'}`
 
 	// Try Cache
 	const cachedData = await stockCache.get(cacheKey)
@@ -45,7 +49,11 @@ app.get('/api/stock', async (c) => {
 	try {
 		console.log(`Fetching ${symbol} from Yahoo Finance...`)
 
-		const queryOptions = { period1: '2000-01-01', interval: '1d' as const };
+		// Use requested date or default to 1970 (Unix Epoch start)
+		// This ensures we get the maximum available history if the user asks for 1963
+		const period1 = requestedStartDate || '1970-01-01';
+
+		const queryOptions = { period1: period1, interval: '1d' as const };
 
 		// Fetch chart and quote data
 		const chartResult = await yahooFinance.chart(symbol, queryOptions);
@@ -60,17 +68,21 @@ app.get('/api/stock', async (c) => {
 			date: Date;
 			close?: number;
 			adjclose?: number;
+			open?: number;
 		}
 
-		// Extract quotes from chart result (v3 API returns data in quotes array)
+		// Extract quotes from chart result
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const quotes = ((chartResult as any)?.quotes ?? []) as ChartQuote[];
+
 		const history = quotes.map((q) => ({
 			date: (q.date instanceof Date ? q.date.toISOString().split('T')[0] : String(q.date)),
-			adjClose: q.adjclose ?? q.close ?? 0
-		}));
+			// Fallback logic: Use adjClose -> Close -> Open -> 0
+			// This prevents "stuck" graphs if a specific data point is missing
+			adjClose: q.adjclose ?? q.close ?? q.open ?? 0
+		})).filter(h => h.adjClose > 0); // Filter out zero-price errors which break calculations
 
-		// Type assertion for quote result as the library types may not be complete
+		// Type assertion for quote result
 		const quote = quoteResult as {
 			currency?: string;
 			regularMarketPrice?: number;
@@ -135,7 +147,7 @@ app.get('/api/resolve/purchase', async (c) => {
 	const currency = c.req.query('currency')?.trim()
 	const limit = Math.max(1, Math.min(10, parseInt(c.req.query('limit') ?? '5', 10)))
 
-	// Basic sanitisation: drop prices, years, and filler words
+	// Basic sanitisation
 	const cleaned = description
 		.replace(/([£$€])\s?\d+(?:[.,]\d+)?/g, ' ')
 		.replace(/\b(19\d{2}|20\d{2})\b/g, ' ')
@@ -181,4 +193,3 @@ serve({
 	fetch: app.fetch,
 	port
 })
-
