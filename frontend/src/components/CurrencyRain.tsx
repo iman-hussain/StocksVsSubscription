@@ -262,11 +262,8 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
     const onPointerUp = () => {
       pointerRef.current.down = false;
     };
-    const onPointerLeave = () => {
-        // For window listeners, this might trigger when leaving the window
-      pointerRef.current.down = false;
-      pointerRef.current.active = false;
-    };
+
+    // REMOVED: unused onPointerLeave function that was breaking the build
 
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches[0]) {
@@ -289,7 +286,6 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
     window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerdown', onPointerDown);
     window.addEventListener('pointerup', onPointerUp);
-    // document.addEventListener('pointerleave', onPointerLeave); // Optional for window
 
     // Keep touch on window as well for consistency
     window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -303,7 +299,6 @@ export default function CurrencyRain({ density = 40 }: { density?: number }) {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointerup', onPointerUp);
-      // window.removeEventListener('pointerleave', onPointerLeave);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
