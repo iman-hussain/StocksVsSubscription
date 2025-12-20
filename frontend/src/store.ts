@@ -1,41 +1,58 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { SpendItem } from './lib/financials';
+import { convertBetween } from './lib/currency';
 
 interface AppState {
 	country: string;
 	currency: string;
-	mode: 'recurring' | 'one-off' | null; // 'recurring' maps to subscriptions
 	basket: SpendItem[];
 
 	// Actions
 	setCountry: (country: string, currency: string) => void;
-	setMode: (mode: 'recurring' | 'one-off') => void;
-	addToBasket: (item: Omit<SpendItem, 'id' | 'type'>) => void;
+	addToBasket: (item: Omit<SpendItem, 'id'>) => void;
+	updateInBasket: (id: string, updates: Partial<SpendItem>) => void;
 	removeFromBasket: (id: string) => void;
 	resetBasket: () => void;
 }
 
-export const useStore = create<AppState>((set) => ({
-	country: 'UK',
-	currency: 'GBP',
-	mode: null,
-	basket: [],
+export const useStore = create<AppState>()(
+	persist(
+		(set) => ({
+			country: 'UK',
+			currency: 'GBP',
+			basket: [],
 
-	setCountry: (country, currency) => set({ country, currency }),
-	setMode: (mode) => set({ mode }),
+			setCountry: (country, currency) => set((state) => {
+				// Convert existing basket items to new currency
+				const newBasket = state.basket.map(item => ({
+					...item,
+					currency: currency,
+					cost: convertBetween(item.cost, item.currency, currency)
+				}));
+				return { country, currency, basket: newBasket };
+			}),
 
-	addToBasket: (item) => set((state) => {
-		const newItem: SpendItem = {
-			...item,
-			id: crypto.randomUUID(),
-			type: state.mode === 'recurring' ? 'subscription' : 'one-off'
-		};
-		return { basket: [...state.basket, newItem] };
-	}),
+			addToBasket: (item) => set((state) => {
+				const newItem: SpendItem = {
+					...item,
+					id: crypto.randomUUID(),
+				};
+				return { basket: [...state.basket, newItem] };
+			}),
 
-	removeFromBasket: (id) => set((state) => ({
-		basket: state.basket.filter(i => i.id !== id)
-	})),
+			updateInBasket: (id, updates) => set((state) => ({
+				basket: state.basket.map(item => item.id === id ? { ...item, ...updates } : item)
+			})),
 
-	resetBasket: () => set({ basket: [] })
-}));
+			removeFromBasket: (id) => set((state) => ({
+				basket: state.basket.filter(i => i.id !== id)
+			})),
+
+			resetBasket: () => set({ basket: [] })
+		}),
+		{
+			name: 'svs-storage-v1',
+		}
+	)
+);

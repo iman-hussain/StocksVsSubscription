@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { calculateMultiStockComparison, calculateIndividualComparison } from '../lib/financials';
-import type { SimulationResult, SpendItem, StockDataPoint } from '../lib/financials';
+import { calculateMultiStockComparison, calculateIndividualComparison, type SimulationResult, type SpendItem } from '../lib/financials';
+import type { StockDataPoint } from '../lib/financials';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 import { ChevronLeft } from 'lucide-react';
 import { useCountUp } from '../lib/useCountUp';
 import CurrencyRain from './CurrencyRain';
-import { convertBetween } from '../lib/currency';
+import { CurrencySwitcher } from './CurrencySwitcher';
 
 interface Props {
 	onBack: () => void;
@@ -24,52 +24,52 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 			className="h-[300px]"
 		>
 			<div className="glass-panel p-4 rounded-2xl h-full flex flex-col">
-			<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name} ({item.ticker})</h3>
-			<div className="flex-1 min-h-0">
-				<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
-					<AreaChart data={result.graphData}>
-						<defs>
-							<linearGradient id={`color-${item.id}-value`} x1="0" y1="0" x2="0" y2="1">
-								<stop offset="5%" stopColor="#00f4a2" stopOpacity={0.3} />
-								<stop offset="95%" stopColor="#00f4a2" stopOpacity={0} />
-							</linearGradient>
-							<linearGradient id={`color-${item.id}-spent`} x1="0" y1="0" x2="0" y2="1">
-								<stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-								<stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-							</linearGradient>
-						</defs>
-						<CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-						<XAxis
-							dataKey="date"
-							tick={{ fill: '#888', fontSize: 10 }}
-							tickLine={false}
-							axisLine={{ stroke: '#333' }}
-						/>
-						<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={70} />
-						<Tooltip
-							contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
-							formatter={(value: number | string | undefined) =>
-								typeof value === 'number' ? formatter.format(value) : ''}
-							labelStyle={{ color: '#888' }}
-						/>
-						<Area
-							type="monotone"
-							dataKey="value"
-							stroke="#00f4a2"
-							strokeWidth={2}
-							fillOpacity={1}
-							fill={`url(#color-${item.id}-value)`}
-						/>
-						<Area
-							type="monotone"
-							dataKey="spent"
-							stroke="#ef4444"
-							strokeWidth={2}
-							strokeDasharray="5 5"
-							fillOpacity={1}
-							fill={`url(#color-${item.id}-spent)`}
-						/>
-					</AreaChart>
+				<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name} ({item.ticker})</h3>
+				<div className="flex-1 min-h-0">
+					<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+						<AreaChart data={result.graphData}>
+							<defs>
+								<linearGradient id={`color-${item.id}-value`} x1="0" y1="0" x2="0" y2="1">
+									<stop offset="5%" stopColor="#00f4a2" stopOpacity={0.3} />
+									<stop offset="95%" stopColor="#00f4a2" stopOpacity={0} />
+								</linearGradient>
+								<linearGradient id={`color-${item.id}-spent`} x1="0" y1="0" x2="0" y2="1">
+									<stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+									<stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+								</linearGradient>
+							</defs>
+							<CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+							<XAxis
+								dataKey="date"
+								tick={{ fill: '#888', fontSize: 10 }}
+								tickLine={false}
+								axisLine={{ stroke: '#333' }}
+							/>
+							<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={70} />
+							<Tooltip
+								contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
+								formatter={(value: number | string | undefined) =>
+									typeof value === 'number' ? formatter.format(value) : ''}
+								labelStyle={{ color: '#888' }}
+							/>
+							<Area
+								type="monotone"
+								dataKey="value"
+								stroke="#00f4a2"
+								strokeWidth={2}
+								fillOpacity={1}
+								fill={`url(#color-${item.id}-value)`}
+							/>
+							<Area
+								type="monotone"
+								dataKey="spent"
+								stroke="#ef4444"
+								strokeWidth={2}
+								strokeDasharray="5 5"
+								fillOpacity={1}
+								fill={`url(#color-${item.id}-spent)`}
+							/>
+						</AreaChart>
 					</ResponsiveContainer>
 				</div>
 			</div>
@@ -78,7 +78,7 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 };
 
 export const RevealSlide = ({ onBack }: Props) => {
-	const { basket } = useStore();
+	const { basket, currency } = useStore();
 	const [result, setResult] = useState<SimulationResult | null>(null);
 	const [itemResults, setItemResults] = useState<Record<string, SimulationResult>>({});
 	const [loading, setLoading] = useState(true);
@@ -89,18 +89,40 @@ export const RevealSlide = ({ onBack }: Props) => {
 	const tickers = [...new Set(basket.map((item) => item.ticker))];
 	const tickersLabel = tickers.join(' + ');
 
-	// Format item names for the verdict text (e.g., "Netflix, Spotify & Gym" or "Netflix, Spotify & 3 others")
-	const formatItemNames = () => {
+	// Format item names for the verdict text
+	// Returns parts for rendering: prefix items + optionally "X others" with hover list
+	const getItemNamesParts = () => {
 		const names = basket.map(item => item.name);
-		if (names.length === 0) return '';
-		if (names.length === 1) return names[0];
-		if (names.length === 2) return `${names[0]} & ${names[1]}`;
-		if (names.length === 3) return `${names[0]}, ${names[1]} & ${names[2]}`;
-		// More than 3 items: show first 2 and "X others"
+		if (names.length === 0) return { prefix: '', hasOthers: false, othersCount: 0, otherNames: [] };
+		if (names.length === 1) return { prefix: names[0], hasOthers: false, othersCount: 0, otherNames: [] };
+		if (names.length === 2) return { prefix: `${names[0]} & ${names[1]}`, hasOthers: false, othersCount: 0, otherNames: [] };
+		if (names.length === 3) return { prefix: `${names[0]}, ${names[1]} & ${names[2]}`, hasOthers: false, othersCount: 0, otherNames: [] };
+		// More than 3 items: show first 2 and "X others" with dropdown
 		const othersCount = names.length - 2;
-		return `${names[0]}, ${names[1]} & ${othersCount} others`;
+		const otherNames = names.slice(2);
+		return {
+			prefix: `${names[0]}, ${names[1]} & `,
+			hasOthers: true,
+			othersCount,
+			otherNames
+		};
 	};
-	const itemNamesLabel = formatItemNames();
+	const itemNamesParts = getItemNamesParts();
+
+	// Dynamic grammar helpers for verdict text
+	const tickerCount = tickers.length;
+
+	// Singular/plural for stock(s)
+	const stockWord = tickerCount === 1 ? tickers[0] : 'these stocks';
+
+	// "that" always refers to the "total amount of money" (singular)
+	const thatWord = 'that';
+
+	// Conditional coloring: did stocks outperform spending?
+	const stocksWon = (result?.investmentValue ?? 0) > (result?.totalSpent ?? 0);
+	// Colors flip based on outcome
+	const spentColorClass = stocksWon ? 'text-red-400' : 'text-brand-neon';
+	const investmentColorClass = stocksWon ? 'text-brand-neon' : 'text-red-400';
 
 	useEffect(() => {
 		const fetchAndCalculate = async () => {
@@ -109,44 +131,116 @@ export const RevealSlide = ({ onBack }: Props) => {
 
 			try {
 				const uniqueTickers = [...new Set(basket.map(item => item.ticker))];
+				const userBaseCurrency = currency || 'GBP';
+
+				// Identify required currency pairs (e.g. GBPUSD=X if user is GBP and item is USD)
+				const requiredPairs = [...new Set(
+					basket
+						.filter(item => item.currency !== userBaseCurrency)
+						.map(item => `${userBaseCurrency}${item.currency}=X`)
+				)];
 
 				// Calculate the earliest start date from the basket
-				// Defaults to 1970-01-01 if something is wrong, but tries to use the item's date
 				const earliestDate = basket.reduce((min, item) => {
 					return item.startDate < min ? item.startDate : min;
 				}, new Date().toISOString().split('T')[0]);
 
-				// Use VITE_API_URL if set, otherwise use relative path (same-origin deployment)
 				const apiUrl = import.meta.env.VITE_API_URL || '';
+
+				// Fetch stock data
 				const stockDataPromises = uniqueTickers.map(async (ticker) => {
-					// Pass startDate to backend to ensure we get enough history
 					const res = await fetch(`${apiUrl}/api/stock?symbol=${ticker}&startDate=${earliestDate}`);
 					const data = await res.json();
 					if (data.error) throw new Error(`Failed to fetch ${ticker}: ${data.error}`);
-					const stockCurrency: string | undefined = data.currency;
-					const targetCurrency = basket[0]?.currency ?? 'GBP';
-					const convertedHistory = Array.isArray(data.history)
-						? data.history.map((p: { date: string; adjClose: number }) => ({
-							date: p.date,
-							adjClose: stockCurrency ? convertBetween(p.adjClose, stockCurrency, targetCurrency) : p.adjClose,
-						  }))
-						: [];
-					return { ticker, history: convertedHistory };
+
+					// IMPORTANT: We no longer convert history here using static convertBetween!
+					// We use the raw prices and let the simulation handle historical conversion
+					// the simulation logic handles the item cost.
+					// However, we still might need to know the native currency of the stock if we were
+					// converting its price to userBaseCurrency.
+					// The user's prompt says: "The simulation graph reflects historical exchange rate fluctuations"
+					// This implies we should convert the stock price day-by-day too.
+
+					const stockCurrency: string = data.currency || 'USD';
+
+					return { ticker, history: data.history || [], nativeCurrency: stockCurrency };
 				});
+
+				// Fetch currency data
+				const currencyPairsExtra = new Set<string>();
+				// We also need to convert stock prices if they're not in userBaseCurrency
+				// So we need pairs for stockNativeCurrency -> userBaseCurrency
+				// The prompt says: "Fetch the relevant currency ticker (e.g. GBPUSD=X if User is GBP and Item is USD)"
+				// Wait, Yahoo Finance rates are often BASEQUOTE=X.
+				// If user is GBP and item is USD, GBPUSD=X tells us how many USD per GBP.
+				// My financials.ts logic: costInUserCurrency = item.cost / rate(User->Item)
+				// So if item.cost is $10 USD and rate(GBPUSD=X) is 1.25, then cost = 10 / 1.25 = £8. Correct.
 
 				const stockDataArray = await Promise.all(stockDataPromises);
 
-				const stockDataMap: Record<string, StockDataPoint[]> = {};
-				for (const { ticker, history } of stockDataArray) {
-					stockDataMap[ticker] = history;
+				for (const item of stockDataArray) {
+					if (item.nativeCurrency !== userBaseCurrency) {
+						currencyPairsExtra.add(`${userBaseCurrency}${item.nativeCurrency}=X`);
+					}
 				}
 
-				const computation = calculateMultiStockComparison(basket, stockDataMap);
+				const allPairs = [...new Set([...requiredPairs, ...Array.from(currencyPairsExtra)])];
+				const currencyDataPromises = allPairs.map(async (pair) => {
+					const res = await fetch(`${apiUrl}/api/stock?symbol=${pair}&startDate=${earliestDate}`);
+					const data = await res.json();
+					return { pair, history: data.history || [] };
+				});
+
+				const currencyDataArray = await Promise.all(currencyDataPromises);
+				const currencyDataMap: Record<string, StockDataPoint[]> = {};
+				for (const { pair, history } of currencyDataArray) {
+					currencyDataMap[pair] = history;
+				}
+
+				const stockDataMap: Record<string, StockDataPoint[]> = {};
+				for (const { ticker, history, nativeCurrency } of stockDataArray) {
+					// Convert stock history prices to userBaseCurrency using historical rates
+					if (nativeCurrency === userBaseCurrency) {
+						stockDataMap[ticker] = history;
+					} else {
+						const pair = `${userBaseCurrency}${nativeCurrency}=X`;
+						const rates = currencyDataMap[pair] || [];
+						// Day-by-day conversion for the stock price history itself
+						// This ensures the stock value on the graph is in User Currency
+						// We can do this here or inside financials.ts.
+						// financials.ts calculateMultiStockComparison currently assumes prices in stockDataMap are "ready".
+						// So let's convert them here.
+
+						const rateIndices: Record<string, number> = { [pair]: 0 };
+						stockDataMap[ticker] = history.map((p: any) => {
+							const dateStr = p.date;
+							const rateHistory = rates;
+							while (rateIndices[pair] < rateHistory.length - 1 && rateHistory[rateIndices[pair] + 1].date <= dateStr) {
+								rateIndices[pair]++;
+							}
+							const rate = rateHistory.length > 0 && rateHistory[rateIndices[pair]].date <= dateStr
+								? rateHistory[rateIndices[pair]].adjClose
+								: 1;
+							return {
+								date: p.date,
+								adjClose: rate > 0 ? p.adjClose / rate : p.adjClose
+							};
+						});
+					}
+				}
+
+				const computation = calculateMultiStockComparison(basket, stockDataMap, userBaseCurrency, currencyDataMap);
 				setResult(computation);
 
 				const itemComputations: Record<string, SimulationResult> = {};
 				for (const item of basket) {
-					const itemComputation = calculateIndividualComparison(item, stockDataMap[item.ticker] || []);
+					const pair = `${userBaseCurrency}${item.currency}=X`;
+					const itemComputation = calculateIndividualComparison(
+						item,
+						stockDataMap[item.ticker] || [],
+						userBaseCurrency,
+						currencyDataMap[pair] || []
+					);
 					itemComputations[item.id] = itemComputation;
 				}
 				setItemResults(itemComputations);
@@ -160,9 +254,10 @@ export const RevealSlide = ({ onBack }: Props) => {
 		if (basket.length > 0) {
 			fetchAndCalculate();
 		}
-	}, [basket]);
+	}, [basket, currency]);
 
-	if (loading) {
+	// Only show full loading screen if we have no result yet (initial load)
+	if (loading && !result) {
 		return (
 			<motion.div
 				initial={{ opacity: 0 }}
@@ -210,14 +305,21 @@ export const RevealSlide = ({ onBack }: Props) => {
 			transition={{ duration: 1, ease: "easeInOut" }}
 			className="min-h-dvh w-full flex flex-col p-6 max-w-7xl mx-auto pt-12 pb-32 relative"
 		>
-			<div className="fixed top-4 left-4 z-10 pointer-events-auto">
-				<motion.button
-					whileHover={{ x: -4 }}
-					onClick={onBack}
-					className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors pointer-events-auto"
-				>
-					<ChevronLeft size={20} /> Back
-				</motion.button>
+			<div className="fixed top-4 inset-x-0 z-10 pointer-events-none">
+				<div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+					<motion.button
+						whileHover={{ x: -4 }}
+						onClick={onBack}
+						className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-400 hover:text-white transition-all duration-300 pointer-events-auto"
+					>
+						<ChevronLeft size={16} className="text-brand-neon" />
+						<span className="font-bold">Back</span>
+					</motion.button>
+
+					<div className="pointer-events-auto">
+						<CurrencySwitcher />
+					</div>
+				</div>
 			</div>
 
 			{/* Verdict Section - Animated */}
@@ -244,7 +346,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.5, ease: "easeOut" }}
-							className="text-red-400 inline-block ms-1"
+							className={`${spentColorClass} inline-block ms-1`}
 						>
 							{formatter.format(animatedSpent)}
 						</motion.span>
@@ -262,7 +364,23 @@ export const RevealSlide = ({ onBack }: Props) => {
 							transition={{ duration: 0.6, delay: 0.7, ease: "easeOut" }}
 							className="text-white inline-block"
 						>
-							{itemNamesLabel}
+							{itemNamesParts.prefix}
+							{itemNamesParts.hasOthers && (
+								<span className="relative inline-block group cursor-help">
+									<span className="underline decoration-dotted underline-offset-4">
+										{itemNamesParts.othersCount} others
+									</span>
+									{/* Hover dropdown */}
+									<span className="absolute left-0 top-full mt-2 bg-black/95 border border-white/20 rounded-lg p-3 min-w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
+										<span className="text-xs text-gray-400 block mb-2">Also includes:</span>
+										{itemNamesParts.otherNames.map((name, idx) => (
+											<span key={idx} className="block text-sm text-white py-0.5">
+												{name}
+											</span>
+										))}
+									</span>
+								</span>
+							)}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0 }}
@@ -279,13 +397,13 @@ export const RevealSlide = ({ onBack }: Props) => {
 							transition={{ duration: 0.6, delay: 0.9, ease: "easeOut" }}
 							className="inline-block mt-1"
 						>
-							If you invested that in those stocks instead, you'd have {' '}
+							If you'd invested {thatWord} in {stockWord} instead, you'd have {' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 1.1, ease: "easeOut" }}
-							className="text-brand-neon inline-block ms-1"
+							className={`${investmentColorClass} inline-block ms-1`}
 						>
 							{formatter.format(animatedInvestment)}
 						</motion.span>

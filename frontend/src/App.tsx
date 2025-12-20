@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { IntroSlide } from './components/IntroSlide';
-import { ForkSlide } from './components/ForkSlide';
 import { BuilderSlide } from './components/BuilderSlide';
 import { RevealSlide } from './components/RevealSlide';
 import { Footer } from './components/Footer';
@@ -15,9 +14,8 @@ function App() {
 		<div className="w-full min-h-screen font-sans text-white selection:bg-brand-neon selection:text-black flex flex-col">
 			<div className="flex-1">
 				{step === 0 && <IntroSlide onNext={next} />}
-				{step === 1 && <ForkSlide onNext={next} onBack={back} />}
-				{step === 2 && <BuilderSlide onNext={next} onBack={back} />}
-				{step === 3 && <RevealSlide onBack={back} />}
+				{step === 1 && <BuilderSlide onNext={next} onBack={back} />}
+				{step === 2 && <RevealSlide onBack={back} />}
 			</div>
 			<Footer />
 		</div>
@@ -25,3 +23,4 @@ function App() {
 }
 
 export default App;
+

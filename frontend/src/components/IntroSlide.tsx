@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { useStore } from '../store';
-import { ChevronRight } from 'lucide-react';
 import CurrencyRain from './CurrencyRain';
 
 interface Props {
@@ -37,7 +36,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 			exit={{ opacity: 0 }}
 			className="h-dvh w-full flex flex-col items-center justify-center relative isolate overflow-hidden p-6 text-center"
 		>
-            {/* Rain handles its own Z-index (-1) and pointer-events (none) */}
+			{/* Rain handles its own Z-index (-1) and pointer-events (none) */}
 			<div className="absolute inset-0">
 				<CurrencyRain density={40} />
 			</div>
@@ -46,7 +45,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 				variants={containerVariants}
 				initial="hidden"
 				animate="visible"
-				className="relative z-10 flex flex-col items-center gap-8 max-w-md w-full pointer-events-auto"
+				className="relative z-10 flex flex-col items-center gap-8 max-w-5xl w-full pointer-events-auto"
 			>
 				<motion.h1
 					variants={itemVariants}
@@ -58,7 +57,7 @@ export const IntroSlide = ({ onNext }: Props) => {
 					variants={itemVariants}
 					className="text-2xl md:text-3xl font-bold tracking-tight text-white"
 				>
-				See what your spending could have become.
+					See what your spending could have become.
 				</motion.h2>
 
 				<motion.p variants={itemVariants} className="text-gray-400 text-lg">
@@ -67,32 +66,38 @@ export const IntroSlide = ({ onNext }: Props) => {
 
 				<motion.div
 					variants={itemVariants}
-					className="w-full"
+					className="w-full max-w-2xl"
 				>
-					<div className="glass-panel p-6 rounded-2xl w-full flex flex-col gap-4">
-					<div className="flex flex-col text-left gap-2">
-						<label className="text-sm text-gray-400">Currency</label>
-						<motion.select
-							whileFocus={{ borderColor: '#00f4a2' }}
-							value={currency}
-							onChange={(e) => setCountry(country, e.target.value)}
-							className="bg-black/20 border border-white/10 rounded-lg p-3 text-white outline-none focus:border-brand-neon transition-colors pointer-events-auto"
-						>
-							<option value="GBP">GBP (£)</option>
-							<option value="USD">USD ($)</option>
-							<option value="EUR">EUR (€)</option>
-							<option value="JPY">JPY (¥)</option>
-						</motion.select>
-					</div>
+					<div className="glass-panel p-8 rounded-3xl w-full flex flex-col gap-6">
+						<div className="flex flex-col text-center gap-4">
+							<label className="text-sm text-gray-400 uppercase tracking-widest font-semibold text-brand-neon">Choose your base currency</label>
 
-					<motion.button
-						whileHover={{ scale: 1.02, y: -2 }}
-						whileTap={{ scale: 0.98 }}
-						onClick={onNext}
-						className="mt-4 bg-brand-neon text-brand-dark font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-white transition-colors pointer-events-auto"
-					>
-						Start <ChevronRight size={20} />
-					</motion.button>
+							<div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+								{[
+									{ id: 'GBP', symbol: '£', label: 'British Pound' },
+									{ id: 'USD', symbol: '$', label: 'US Dollar' },
+									{ id: 'EUR', symbol: '€', label: 'Euro' },
+									{ id: 'JPY', symbol: '¥', label: 'Japanese Yen' }
+								].map((curr) => (
+									<motion.button
+										key={curr.id}
+										whileHover={{ scale: 1.05, y: -2 }}
+										whileTap={{ scale: 0.95 }}
+										onClick={() => {
+											setCountry(country, curr.id);
+											onNext();
+										}}
+										className={`flex flex-col items-center justify-center p-6 rounded-2xl border transition-all duration-300 ${currency === curr.id
+											? 'bg-brand-neon/20 border-brand-neon text-white shadow-[0_0_20px_rgba(0,244,162,0.2)]'
+											: 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/30'
+											}`}
+									>
+										<span className="text-4xl font-bold mb-2">{curr.symbol}</span>
+										<span className="text-xs font-bold uppercase tracking-tighter opacity-70">{curr.id}</span>
+									</motion.button>
+								))}
+							</div>
+						</div>
 					</div>
 				</motion.div>
 			</motion.div>
