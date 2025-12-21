@@ -4,7 +4,7 @@ import { calculateMultiStockComparison, calculateIndividualComparison, type Simu
 import type { StockDataPoint } from '../lib/financials';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Share2, Download, Twitter, Linkedin, Facebook } from 'lucide-react';
+import { ChevronLeft, Share2, Twitter, Linkedin, MessageCircle, MessageSquare } from 'lucide-react';
 import { useCountUp } from '../lib/useCountUp';
 import CurrencyRain from './CurrencyRain';
 import { CurrencySwitcher } from './CurrencySwitcher';
@@ -159,7 +159,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 		return `${names[0]}, ${names[1]} & ${names.length - 2} others`;
 	};
 
-	const handleShare = async (platform?: 'twitter' | 'linkedin' | 'facebook' | 'download') => {
+	const handleShare = async (platform?: 'twitter' | 'linkedin' | 'facebook' | 'whatsapp' | 'reddit' | 'download') => {
 		const card = document.getElementById('share-card');
 		if (!card) {
 			console.error('Share card element not found via ID');
@@ -188,21 +188,38 @@ export const RevealSlide = ({ onBack }: Props) => {
 			const itemNames = getItemNamesString();
 			const shareText = `I spent ${formatter.format(result!.totalSpent)} on ${itemNames}. If I invested it, I'd have ${formatter.format(result!.investmentValue)}! Check your stack:`;
 
-			// Mobile native share (when no platform specified)
-			if (!platform && typeof navigator !== 'undefined' && (navigator as any).share && (navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
-				console.log('Triggering native share');
-				await (navigator as any).share({
-					title: 'Stocks vs Subscription',
-					text: shareText,
-					url: shareUrl,
-					files: [file]
-				});
-				return;
+			// 1. Native Web Share API (Mobile & Supported Desktop)
+			if (!platform && typeof navigator !== 'undefined' && 'share' in navigator && (navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
+				try {
+					console.log('Triggering native share');
+					await navigator.share({
+						title: 'Stocks vs Subscription',
+						text: shareText,
+						url: shareUrl,
+						files: [file]
+					});
+					return;
+				} catch (err) {
+					console.warn('Native share failed or cancelled, falling back to clipboard', err);
+					// Fall through to clipboard logic
+				}
 			}
 
-			// Desktop Download
-			// Helper function to trigger download
-			const triggerDownload = () => {
+			// 2. Fallback / Desktop Logic: Copy Image to Clipboard
+			const copyImageToClipboard = async () => {
+				try {
+					await navigator.clipboard.write([
+						new ClipboardItem({ [blob.type]: blob })
+					]);
+					alert("Image copied to clipboard! \n\nPaste it (Ctrl+V) into your social post to attach it.");
+				} catch (err) {
+					console.error('Clipboard write failed', err);
+					alert("Could not automatically copy image. Download starting instead.");
+					downloadImage(); // Ultimate fallback
+				}
+			};
+
+			const downloadImage = () => {
 				const link = document.createElement('a');
 				link.download = 'stocks-vs-subscription-verdict.png';
 				link.href = image;
@@ -213,14 +230,14 @@ export const RevealSlide = ({ onBack }: Props) => {
 
 			if (platform === 'download') {
 				console.log('Triggering download');
-				triggerDownload();
+				downloadImage();
 				return;
 			}
 
-			// Socials - For desktop, we download the image first so user can attach it, then open the intent
+			// Socials - For desktop, we copy image to clipboard so user can paste it
 			if (platform) {
-				console.log('Triggering download + social intent');
-				triggerDownload(); // Download image for manual attachment
+				console.log('Triggering clipboard copy + social intent');
+				await copyImageToClipboard();
 
 				let intentUrl = '';
 				switch (platform) {
@@ -640,23 +657,17 @@ export const RevealSlide = ({ onBack }: Props) => {
 				<h3 className="text-sm font-semibold text-gray-300 mb-4">Share Verdict</h3>
 				<div className="flex flex-wrap gap-4">
 					{/* Primary Share / Download Button */}
+					{/* Primary Share / Download Button */}
 					<button
-						onClick={() => handleShare(window.innerWidth < 768 ? undefined : 'download')}
+						onClick={() => handleShare()}
 						className="bg-brand-neon hover:bg-white text-brand-dark px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors min-w-[200px] justify-center"
 					>
-						{typeof navigator !== 'undefined' && (navigator as any).share && window.innerWidth < 768 ? (
-							<>
-								<Share2 size={18} /> Share Verdict
-							</>
-						) : (
-							<>
-								<Download size={18} /> Download Screenshot
-							</>
-						)}
+						<Share2 size={18} /> Share Verdict
 					</button>
 
 					{/* Desktop Social Buttons */}
-					<div className="flex gap-2">
+					{/* Desktop Social Buttons */}
+					<div className="hidden md:flex gap-2">
 						<button
 							onClick={() => handleShare('twitter')}
 							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
@@ -672,42 +683,51 @@ export const RevealSlide = ({ onBack }: Props) => {
 							<Linkedin size={20} />
 						</button>
 						<button
-							onClick={() => handleShare('facebook')}
+							onClick={() => handleShare('whatsapp')}
 							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
-							title="Share on Facebook"
+							title="Share on WhatsApp"
 						>
-							<Facebook size={20} />
+							<MessageCircle size={20} />
+						</button>
+						<button
+							onClick={() => handleShare('reddit')}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							title="Share on Reddit"
+						>
+							<MessageSquare size={20} />
 						</button>
 					</div>
 				</div>
 			</motion.div>
 
 			{/* Individual Item Charts Grid */}
-			{basket.length > 1 && (
-				<motion.div
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					transition={{ duration: 1, delay: 0.4 }}
-				>
-					<h3 className="text-sm font-semibold text-gray-300 mb-6">Individual Item Performance</h3>
-					<div className={`grid gap-6 ${basket.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
-						basket.length === 3 ? 'grid-cols-1 md:grid-cols-3' :
-							basket.length <= 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2' :
-								'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
-						}`}>
-						{basket.map((item, idx) => (
-							<motion.div
-								key={item.id}
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1 }}
-								transition={{ duration: 0.8, delay: 0.1 * idx, ease: "easeOut" }}
-							>
-								{itemResults[item.id] && <ItemChart item={item} result={itemResults[item.id]} />}
-							</motion.div>
-						))}
-					</div>
-				</motion.div>
-			)}
+			{
+				basket.length > 1 && (
+					<motion.div
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						transition={{ duration: 1, delay: 0.4 }}
+					>
+						<h3 className="text-sm font-semibold text-gray-300 mb-6">Individual Item Performance</h3>
+						<div className={`grid gap-6 ${basket.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
+							basket.length === 3 ? 'grid-cols-1 md:grid-cols-3' :
+								basket.length <= 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2' :
+									'grid-cols-1 md:grid-cols-2 lg:grid-cols-4'
+							}`}>
+							{basket.map((item, idx) => (
+								<motion.div
+									key={item.id}
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									transition={{ duration: 0.8, delay: 0.1 * idx, ease: "easeOut" }}
+								>
+									{itemResults[item.id] && <ItemChart item={item} result={itemResults[item.id]} />}
+								</motion.div>
+							))}
+						</div>
+					</motion.div>
+				)
+			}
 
 
 			{/* Hidden Share Card for Screenshot Generation */}
@@ -724,6 +744,6 @@ export const RevealSlide = ({ onBack }: Props) => {
 					/>
 				)}
 			</div>
-		</motion.div>
+		</motion.div >
 	);
 };
