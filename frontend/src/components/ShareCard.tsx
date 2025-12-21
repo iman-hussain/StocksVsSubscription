@@ -15,10 +15,6 @@ interface ShareCardProps {
 export const ShareCard = ({ result, itemNames, formattedSpent, formattedInvestment, tickers }: ShareCardProps) => {
 	const stocksWon = result.investmentValue > result.totalSpent;
 
-	// Grammar
-	const tickerCount = tickers.length;
-	const stockWord = tickerCount === 1 ? tickers[0] : 'these stocks';
-
 	// Explicit colors to avoid oklab() which html2canvas doesn't support
 	const neonHex = '#00f4a2';
 	const redHex = '#f87171';
@@ -89,13 +85,13 @@ export const ShareCard = ({ result, itemNames, formattedSpent, formattedInvestme
 					<h1 style={{ fontWeight: 'bold', lineHeight: '1.15', color: whiteHex, fontSize: '2.75rem', margin: 0 }}>
 						I spent <span style={{ color: stocksWon ? redHex : neonHex }}>{formattedSpent}</span> on {itemNames}.
 						<br /><br />
-						If I'd invested in {stockWord}, I'd have <span style={{ color: stocksWon ? neonHex : redHex }}>{formattedInvestment}</span>.
+						That money, invested, would now be <span style={{ color: stocksWon ? neonHex : redHex }}>{formattedInvestment}</span>.
 					</h1>
 				</div>
 
 				{/* Right 1/3: Total Return (right aligned) */}
 				<div style={{ width: '34%', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-					<div style={{ fontSize: '1.25rem', marginBottom: '8px', fontWeight: 500, color: grayHex, textAlign: 'right' }}>Total Return</div>
+					<div style={{ fontSize: '1.5rem', marginBottom: '8px', fontWeight: 500, color: grayHex, textAlign: 'right' }}>Total Return</div>
 					<div
 						style={{
 							fontWeight: 900,
@@ -111,9 +107,8 @@ export const ShareCard = ({ result, itemNames, formattedSpent, formattedInvestme
 				</div>
 			</div>
 
-			{/* ===== MIDDLE: Call to action ===== */}
 			<div style={{ position: 'relative', zIndex: 20, paddingBottom: '16px' }}>
-				<div style={{ fontWeight: 600, letterSpacing: '0.02em', color: 'rgba(255, 255, 255, 0.6)', fontSize: '1.1rem', textAlign: 'left' }}>
+				<div style={{ fontWeight: 600, letterSpacing: '0.02em', color: 'rgba(255, 255, 255, 0.6)', fontSize: '1.4rem', textAlign: 'left' }}>
 					Find out what you could have made @ <span style={{ color: '#00f4a2', fontWeight: 700 }}>svs.imanhussain.com</span>
 				</div>
 			</div>

@@ -199,8 +199,8 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 		setIsSharing(true);
 
 		try {
-			const shareUrl = window.location.href;
-			const shareText = `I spent ${formatCurrency(result!.totalSpent, result!.currency)} on ${getItemNamesString()}. If I'd invested that in ${tickersLabel} instead, I'd have ${formatCurrency(result!.investmentValue, result!.currency)} today! 💸💎\n\nCheck yours at ${shareUrl} #StocksVsSubscription #Investing`;
+			const shareUrl = 'https://svs.imanhussain.com';
+			const shareText = `I spent ${formatCurrency(result!.totalSpent, result!.currency)} on ${getItemNamesString()}. That money, invested, would now be ${formatCurrency(result!.investmentValue, result!.currency)}! 💸💎\n\nCheck yours at ${shareUrl}`;
 
 			// 1. Always generate the image if it's a social share OR binary download
 			const card = document.getElementById('share-card-container');
