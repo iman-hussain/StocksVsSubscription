@@ -19,11 +19,11 @@ type Drop = {
 const symbols = ['£', '$', '€', '¥'];
 
 const SizeCategory = {
-  TINY: { min: 1, max: 100, chance: 0.50 },
-  SMALL: { min: 100, max: 200, chance: 0.10 },
-  MEDIUM: { min: 200, max: 300, chance: 0.20 },
-  LARGE: { min: 300, max: 400, chance: 0.10 },
-  GIANT: { min: 400, max: 500, chance: 0.10 },
+  TINY: { min: 100, max: 200, chance: 0.50 },
+  SMALL: { min: 200, max: 300, chance: 0.25 },
+  MEDIUM: { min: 300, max: 400, chance: 0.10},
+  LARGE: { min: 400, max: 500, chance: 0.10 },
+  GIANT: { min: 500, max: 600, chance: 0.05 },
 } as const;
 
 function pickSize(): number {

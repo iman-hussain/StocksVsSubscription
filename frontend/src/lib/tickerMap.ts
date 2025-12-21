@@ -195,11 +195,11 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
 	{ name: 'iPhone 12 Pro Max 256GB', ticker: 'AAPL', rtp: 1199, releaseDate: '2020-11-13', aliases: ['iphone 12 pro max 256gb'] },
 	{ name: 'iPhone 13 Mini 128GB', ticker: 'AAPL', rtp: 699, releaseDate: '2021-09-24', aliases: ['iphone 13 mini', 'iphone13mini', 'iphone 13 mini 128gb'] },
 	{ name: 'iPhone 13 Mini 256GB', ticker: 'AAPL', rtp: 799, releaseDate: '2021-09-24', aliases: ['iphone 13 mini 256gb'] },
-	{ name: 'iPhone 13 128GB', ticker: 'AAPL', rtp: 799, releaseDate: '2021-09-24', aliases: ['iphone 13', 'iphone13', 'iphone 13 128gb'] },
+	{ name: 'iPhone 13 128GB', ticker: 'AAPL', rtp: 779, releaseDate: '2021-09-24', aliases: ['iphone 13', 'iphone13', 'iphone 13 128gb'] },
 	{ name: 'iPhone 13 256GB', ticker: 'AAPL', rtp: 899, releaseDate: '2021-09-24', aliases: ['iphone 13 256gb'] },
 	{ name: 'iPhone 13 Pro Max 128GB', ticker: 'AAPL', rtp: 1099, releaseDate: '2021-09-24', aliases: ['iphone 13 pro max', 'iphone13promax', 'iphone 13 pro max 128gb'] },
 	{ name: 'iPhone 13 Pro Max 256GB', ticker: 'AAPL', rtp: 1199, releaseDate: '2021-09-24', aliases: ['iphone 13 pro max 256gb'] },
-	{ name: 'iPhone 14 128GB', ticker: 'AAPL', rtp: 799, releaseDate: '2022-09-16', aliases: ['iphone 14', 'iphone14', 'iphone 14 128gb'] },
+	{ name: 'iPhone 14 128GB', ticker: 'AAPL', rtp: 849, releaseDate: '2022-09-16', aliases: ['iphone 14', 'iphone14', 'iphone 14 128gb'] },
 	{ name: 'iPhone 14 256GB', ticker: 'AAPL', rtp: 899, releaseDate: '2022-09-16', aliases: ['iphone 14 256gb'] },
 	{ name: 'iPhone 14 Pro Max 128GB', ticker: 'AAPL', rtp: 1099, releaseDate: '2022-09-16', aliases: ['iphone 14 pro max', 'iphone14promax', 'iphone 14 pro max 128gb'] },
 	{ name: 'iPhone 14 Pro Max 256GB', ticker: 'AAPL', rtp: 1199, releaseDate: '2022-09-16', aliases: ['iphone 14 pro max 256gb'] },
@@ -303,11 +303,11 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
 	{ name: 'Google Pixel 1', ticker: 'GOOGL', rtp: 649, releaseDate: '2016-10-20', aliases: ['pixel 1', 'original pixel'] },
 
 	// --- Gaming Consoles: Modern ---
-	{ name: 'Xbox Series X', ticker: 'MSFT', rtp: 479, releaseDate: '2020-11-10', aliases: ['xbox series x', 'xboxxs', 'xbox x', 'seriesx'] },
+	{ name: 'Xbox Series X', ticker: 'MSFT', rtp: 449, releaseDate: '2020-11-10', aliases: ['xbox series x', 'xboxxs', 'xbox x', 'seriesx'] },
 	{ name: 'Xbox Series S', ticker: 'MSFT', rtp: 299, releaseDate: '2020-11-10', aliases: ['xbox series s', 'xboxss', 'xbox s', 'seriess'] },
 	{ name: 'PlayStation 5 Pro', ticker: 'SONY', rtp: 699, releaseDate: '2024-11-07', aliases: ['ps5 pro', 'playstation 5 pro', 'ps5pro', 'sony ps5 pro'] },
-	{ name: 'PlayStation 5', ticker: 'SONY', rtp: 479, releaseDate: '2020-11-12', aliases: ['ps5', 'playstation 5', 'playstation5', 'playstation'] },
-	{ name: 'Nintendo Switch', ticker: 'NTDOY', rtp: 299, releaseDate: '2017-03-03', aliases: ['switch', 'nintendo switch', 'nintendoswitch'] },
+	{ name: 'PlayStation 5', ticker: 'SONY', rtp: 449, releaseDate: '2020-11-19', aliases: ['ps5', 'playstation 5', 'playstation5', 'playstation'] },
+	{ name: 'Nintendo Switch', ticker: 'NTDOY', rtp: 279, releaseDate: '2017-03-03', aliases: ['switch', 'nintendo switch', 'nintendoswitch'] },
 
 	// --- Gaming Consoles: Classic/Legacy ---
 	{ name: 'PlayStation 4', ticker: 'SONY', rtp: 299, releaseDate: '2013-11-15', aliases: ['ps4', 'playstation 4', 'playstation4'] },
@@ -438,7 +438,7 @@ export const PRODUCT_DATABASE: ProductMapping[] = [
 
 	// Tesla (S3XY + Cybertruck)
 	{ name: 'Tesla Model S', ticker: 'TSLA', rtp: 74990, releaseDate: '2012-06-22', aliases: ['model s', 'tesla model s'] },
-	{ name: 'Tesla Model 3', ticker: 'TSLA', rtp: 38990, releaseDate: '2017-07-28', aliases: ['model 3', 'tesla model 3'] },
+	{ name: 'Tesla Model 3', ticker: 'TSLA', rtp: 38900, releaseDate: '2019-06-01', aliases: ['model 3', 'tesla model 3'] },
 	{ name: 'Tesla Model X', ticker: 'TSLA', rtp: 79990, releaseDate: '2015-09-29', aliases: ['model x', 'tesla model x'] },
 	{ name: 'Tesla Model Y', ticker: 'TSLA', rtp: 43990, releaseDate: '2020-03-13', aliases: ['model y', 'tesla model y'] },
 	{ name: 'Tesla Cybertruck', ticker: 'TSLA', rtp: 79990, releaseDate: '2023-11-30', aliases: ['cybertruck', 'tesla cybertruck', 'cyber truck'] },

@@ -4,7 +4,7 @@ import { calculateMultiStockComparison, calculateIndividualComparison, type Simu
 import type { StockDataPoint } from '../lib/financials';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Share2, Twitter, Linkedin, MessageCircle, MessageSquare } from 'lucide-react';
+import { ChevronLeft, Share2, Download, Twitter, Facebook, Linkedin } from 'lucide-react';
 import { useCountUp } from '../lib/useCountUp';
 import CurrencyRain from './CurrencyRain';
 import { CurrencySwitcher } from './CurrencySwitcher';
@@ -13,6 +13,7 @@ import html2canvas from 'html2canvas';
 
 interface Props {
 	onBack: () => void;
+	isDesktopSplit?: boolean;
 }
 
 const TooltipWrapper = ({ count, names }: { count: number; names: string[] }) => {
@@ -67,7 +68,7 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 			<div className="glass-panel p-4 rounded-2xl h-full flex flex-col">
 				<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name} ({item.ticker})</h3>
 				<div className="flex-1 min-h-0">
-					<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
+					<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
 						<AreaChart data={result.graphData}>
 							<defs>
 								<linearGradient id={`color-${item.id}-value`} x1="0" y1="0" x2="0" y2="1">
@@ -118,7 +119,7 @@ const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult
 	);
 };
 
-export const RevealSlide = ({ onBack }: Props) => {
+export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	const { basket, currency } = useStore();
 	const [result, setResult] = useState<SimulationResult | null>(null);
 	const [itemResults, setItemResults] = useState<Record<string, SimulationResult>>({});
@@ -173,7 +174,9 @@ export const RevealSlide = ({ onBack }: Props) => {
 				scale: 2,
 				backgroundColor: '#000000',
 				useCORS: true,
-				logging: true, // Enable html2canvas internal logs
+				logging: true,
+				scrollX: 0,
+				scrollY: 0,
 			});
 
 			console.log('Canvas captured successfully');
@@ -417,7 +420,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				exit={{ opacity: 0 }}
-				className="h-dvh flex flex-col items-center justify-center gap-4 relative overflow-hidden"
+				className={`${isDesktopSplit ? 'h-full' : 'h-dvh'} flex flex-col items-center justify-center gap-4 relative overflow-hidden`}
 			>
 				{/* FIX: Explicit z-0 and pointer-events-none on the WRAPPER */}
 				<div className="absolute inset-0 z-0 pointer-events-none">
@@ -440,7 +443,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 			<motion.div
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
-				className="h-dvh flex flex-col items-center justify-center text-red-500 gap-4"
+				className={`${isDesktopSplit ? 'h-full' : 'h-dvh'} flex flex-col items-center justify-center text-red-500 gap-4`}
 			>
 				<div>Error: {error}</div>
 				<button onClick={onBack} className="text-gray-400 hover:text-white flex items-center gap-2">
@@ -457,24 +460,26 @@ export const RevealSlide = ({ onBack }: Props) => {
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
 			transition={{ duration: 1, ease: "easeInOut" }}
-			className="min-h-dvh w-full flex flex-col p-4 md:p-6 max-w-7xl mx-auto pt-16 md:pt-24 pb-8 md:pb-32 relative"
+			className={`w-full flex flex-col p-4 md:p-6 relative ${isDesktopSplit ? 'min-h-0 pt-0 pb-12' : 'min-h-dvh max-w-7xl mx-auto pt-16 md:pt-24 pb-8 md:pb-32'}`}
 		>
-			<div className="fixed top-4 inset-x-0 z-10 pointer-events-none">
-				<div className="max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center">
-					<motion.button
-						whileHover={{ x: -4 }}
-						onClick={onBack}
-						className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-400 hover:text-white transition-all duration-300 pointer-events-auto shadow-lg backdrop-blur-md"
-					>
-						<ChevronLeft size={16} className="text-brand-neon" />
-						<span className="font-bold">Back</span>
-					</motion.button>
+			{!isDesktopSplit && (
+				<div className="fixed top-4 inset-x-0 z-10 pointer-events-none">
+					<div className="max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center">
+						<motion.button
+							whileHover={{ x: -4 }}
+							onClick={onBack}
+							className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-400 hover:text-white transition-all duration-300 pointer-events-auto shadow-lg backdrop-blur-md"
+						>
+							<ChevronLeft size={16} className="text-brand-neon" />
+							<span className="font-bold">Back</span>
+						</motion.button>
 
-					<div className="pointer-events-auto">
-						<CurrencySwitcher />
+						<div className="pointer-events-auto">
+							<CurrencySwitcher />
+						</div>
 					</div>
 				</div>
-			</div>
+			)}
 
 			{/* Verdict Section - Animated */}
 			<div className="flex flex-col md:flex-row justify-between items-end mb-4 md:mb-12 gap-4 md:gap-6">
@@ -579,9 +584,9 @@ export const RevealSlide = ({ onBack }: Props) => {
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				transition={{ duration: 1, delay: 0.2, ease: "easeInOut" }}
-				className="w-full h-[220px] md:h-[350px] relative mb-6 md:mb-12"
+				className="w-full h-[320px] md:h-[350px] relative mb-8 md:mb-12"
 			>
-				<div className="glass-panel p-4 rounded-3xl w-full h-full flex flex-col">
+				<div className="glass-panel p-4 rounded-3xl w-full h-full flex flex-col overflow-hidden border border-white/5">
 					<div className="flex items-center gap-4 mb-4 flex-wrap text-xs text-gray-300">
 						<h3 className="text-sm font-semibold text-gray-300">Portfolio Growth ({tickersLabel || 'SPY'})</h3>
 						<div className="flex items-center gap-3">
@@ -595,8 +600,8 @@ export const RevealSlide = ({ onBack }: Props) => {
 							</div>
 						</div>
 					</div>
-					<div className="flex-1 min-h-0 relative" style={{ minHeight: 250 }}>
-						<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
+					<div className="flex-1 min-h-0 relative">
+						<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
 							<AreaChart data={result!.graphData}>
 								<defs>
 									<linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
@@ -656,8 +661,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 			>
 				<h3 className="text-sm font-semibold text-gray-300 mb-4">Share Verdict</h3>
 				<div className="flex flex-wrap gap-4">
-					{/* Primary Share / Download Button */}
-					{/* Primary Share / Download Button */}
+					{/* Primary Share Button (Native API) */}
 					<button
 						onClick={() => handleShare()}
 						className="bg-brand-neon hover:bg-white text-brand-dark px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors min-w-[200px] justify-center"
@@ -665,7 +669,14 @@ export const RevealSlide = ({ onBack }: Props) => {
 						<Share2 size={18} /> Share Verdict
 					</button>
 
-					{/* Desktop Social Buttons */}
+					{/* Download Button (Direct) */}
+					<button
+						onClick={() => handleShare('download')}
+						className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors justify-center"
+					>
+						<Download size={18} /> Download
+					</button>
+
 					{/* Desktop Social Buttons */}
 					<div className="hidden md:flex gap-2">
 						<button
@@ -683,18 +694,29 @@ export const RevealSlide = ({ onBack }: Props) => {
 							<Linkedin size={20} />
 						</button>
 						<button
-							onClick={() => handleShare('whatsapp')}
+							onClick={() => handleShare('facebook')}
 							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
-							title="Share on WhatsApp"
+							title="Share on Facebook"
 						>
-							<MessageCircle size={20} />
+							<Facebook size={20} />
 						</button>
 						<button
 							onClick={() => handleShare('reddit')}
 							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
 							title="Share on Reddit"
 						>
-							<MessageSquare size={20} />
+							<svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+								<path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+							</svg>
+						</button>
+						<button
+							onClick={() => handleShare('whatsapp')}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							title="Share on WhatsApp"
+						>
+							<svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+								<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.248-.57-.397m-5.475 7.613h-.004c-1.93 0-3.816-.502-5.466-1.47l-.39-.231-4.053 1.063 1.082-3.951-.253-.404a10.013 10.013 0 0 1-1.378-5.325c0-5.592 4.542-10.133 10.137-10.133 2.707 0 5.253 1.055 7.167 2.969 1.915 1.915 2.968 4.462 2.968 7.17 0 5.592-4.544 10.132-10.135 10.132m0-18.373c-4.542 0-8.238 3.696-8.238 8.24 0 1.802.584 3.483 1.583 4.881l-1.685 6.152 6.293-1.65a8.204 8.204 0 0 0 3.792.518h.001c4.54 0 8.24-3.696 8.24-8.24 0-4.545-3.695-8.24-8.24-8.24" />
+							</svg>
 						</button>
 					</div>
 				</div>
@@ -731,7 +753,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 
 
 			{/* Hidden Share Card for Screenshot Generation */}
-			<div className="fixed top-0 left-[-9999px] pointer-events-none">
+			<div className="fixed top-0 left-[200vw] pointer-events-none">
 				{result && (
 					<ShareCard
 						result={result}

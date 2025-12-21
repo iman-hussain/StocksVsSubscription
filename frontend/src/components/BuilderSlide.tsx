@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, ArrowRight, ChevronLeft, X, Repeat, ShoppingBag, Coffee } from 'lucide-react';
+import { Plus, Trash2, ArrowRight, ChevronLeft, X, Repeat, ShoppingBag, Coffee, Flame } from 'lucide-react';
 import { getSubscriptionPresets, getOneOffPresets, getHabitPresets, resolveTicker, resolveProduct, SUBSCRIPTION_TICKERS, PRODUCT_DATABASE } from '../lib/tickerMap';
 import { resolveQuery, type ResolveResponse } from '../lib/api';
 import { convertPrice, getCurrencySymbol } from '../lib/currency';
@@ -11,7 +11,9 @@ import type { SpendFrequency } from '../lib/financials';
 interface Props {
 	onNext: () => void;
 	onBack: () => void;
+	isDesktopSplit?: boolean;
 }
+
 
 interface PresetModalData {
 	name: string;
@@ -58,12 +60,28 @@ const TICKER_COMPANY_NAMES: Record<string, string> = {
 	'INTC': 'Intel',
 	'005930.KS': 'Samsung',
 	'TSLA': 'Tesla',
-	'MU': 'Memory (RAM)',
+	'MU': 'Micron Technology',
 	'DELL': 'Dell',
 	'LOGI': 'Logitech',
+	'F': 'Ford',
+	'HMC': 'Honda',
+	'TM': 'Toyota',
+	'HYMLF': 'Hyundai',
+	'SN': 'SharkNinja',
+	'CRSR': 'Corsair',
+	'STX': 'Seagate',
+	'PHG': 'Philips',
+	'IRBT': 'iRobot',
+	'SONO': 'Sonos',
+	'GRMN': 'Garmin',
+	'GPRO': 'GoPro',
+	'PTON': 'Peloton',
+	'ROKU': 'Roku',
+	'ADT': 'ADT',
+	'ARLO': 'Arlo',
 };
 
-export const BuilderSlide = ({ onNext, onBack }: Props) => {
+export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) => {
 	const { basket, addToBasket, updateInBasket, removeFromBasket, currency } = useStore();
 
 	// Preset tab state
@@ -273,11 +291,14 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 		<motion.div
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
-			className="min-h-dvh w-full flex flex-col p-6 pt-24 pb-24 gap-6 max-w-2xl mx-auto relative z-10"
+			className={`w-full flex flex-col gap-6 relative z-10 ${isDesktopSplit ? 'min-h-0 p-6' : 'min-h-dvh p-6 pt-24 pb-24 max-w-2xl mx-auto'}`}
 		>
 			{/* Header with title and back button */}
-			<div className="fixed top-4 inset-x-0 z-50 pointer-events-none">
-				<div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+			<div className={isDesktopSplit
+				? "sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md -mx-6 px-6 py-4 mb-2 border-b border-white/5 flex justify-between items-center"
+				: "fixed top-4 inset-x-0 z-50 pointer-events-none"
+			}>
+				<div className={isDesktopSplit ? "w-full flex justify-between items-center" : "max-w-7xl mx-auto px-6 flex justify-between items-center w-full"}>
 					<button
 						onClick={onBack}
 						className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-400 hover:text-white transition-all duration-300 pointer-events-auto"
@@ -569,38 +590,75 @@ export const BuilderSlide = ({ onNext, onBack }: Props) => {
 						</div>
 					) : (
 						/* One-off presets grouped by ticker/company */
-						<div className="flex flex-col gap-4">
-							{Object.entries(
-								oneOffPresets.reduce((acc, p) => {
-									const key = p.ticker;
-									if (!acc[key]) acc[key] = [];
-									acc[key].push(p);
-									return acc;
-								}, {} as Record<string, typeof oneOffPresets>)
-							).map(([ticker, items]) => (
-								<div key={ticker}>
-									<div className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">
-										{TICKER_COMPANY_NAMES[ticker] || ticker}
-									</div>
-									<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-										{items.map((p, idx) => (
-											<motion.button
-												key={p.name}
-												initial={{ opacity: 0, y: 10 }}
-												animate={{ opacity: 1, y: 0 }}
-												transition={{ delay: 0.02 * idx, duration: 0.3 }}
-												whileHover={{ scale: 1.03, y: -1 }}
-												whileTap={{ scale: 0.98 }}
-												onClick={() => openPresetModal(p)}
-												className="glass-panel px-3 py-2 rounded-lg hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left h-full break-words leading-tight"
-												title={p.name}
-											>
-												+ {p.name}
-											</motion.button>
-										))}
-									</div>
+						<div className="flex flex-col gap-6">
+							{/* Popular Section */}
+							<div>
+								<div className="text-xs text-brand-neon font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
+									<Flame size={12} fill="currentColor" /> Popular
 								</div>
-							))}
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+									{[
+										{ name: 'iPhone 15 (128GB)', defaultCost: 799, ticker: 'AAPL', releaseDate: '2023-09-22' },
+										{ name: 'Tesla Model 3', defaultCost: 38900, ticker: 'TSLA', releaseDate: '2019-06-01' },
+										{ name: 'MacBook Air (M1)', defaultCost: 999, ticker: 'AAPL', releaseDate: '2020-11-17' },
+									].map((p, idx) => (
+										<motion.button
+											key={p.name}
+											initial={{ opacity: 0, y: 10 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{ delay: 0.02 * idx, duration: 0.3 }}
+											whileHover={{ scale: 1.03, y: -1 }}
+											whileTap={{ scale: 0.98 }}
+											onClick={() => openPresetModal(p)}
+											className="glass-panel px-3 py-2 rounded-lg hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left h-full break-words leading-tight bg-brand-neon/5 border-brand-neon/20"
+											title={p.name}
+										>
+											<div className="font-semibold">{p.name}</div>
+											<div className="text-xs text-gray-400 mt-1">
+												£{p.defaultCost} • <span className="text-gray-500 font-mono">{p.ticker}</span>
+											</div>
+										</motion.button>
+									))}
+								</div>
+							</div>
+
+							{/* All Brands List */}
+							<div className="flex flex-col gap-4">
+								<div className="text-xs text-gray-500 font-bold uppercase tracking-wider border-t border-white/10 pt-4">
+									All Brands
+								</div>
+								{Object.entries(
+									oneOffPresets.reduce((acc, p) => {
+										const key = p.ticker;
+										if (!acc[key]) acc[key] = [];
+										acc[key].push(p);
+										return acc;
+									}, {} as Record<string, typeof oneOffPresets>)
+								).map(([ticker, items]) => (
+									<div key={ticker}>
+										<div className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-2">
+											{TICKER_COMPANY_NAMES[ticker] || ticker}
+										</div>
+										<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+											{items.map((p, idx) => (
+												<motion.button
+													key={p.name}
+													initial={{ opacity: 0, y: 10 }}
+													animate={{ opacity: 1, y: 0 }}
+													transition={{ delay: 0.02 * idx, duration: 0.3 }}
+													whileHover={{ scale: 1.03, y: -1 }}
+													whileTap={{ scale: 0.98 }}
+													onClick={() => openPresetModal(p)}
+													className="glass-panel px-3 py-2 rounded-lg hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left h-full break-words leading-tight"
+													title={p.name}
+												>
+													+ {p.name}
+												</motion.button>
+											))}
+										</div>
+									</div>
+								))}
+							</div>
 						</div>
 					)}
 				</div>
