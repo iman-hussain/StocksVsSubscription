@@ -7,6 +7,7 @@ interface AppState {
 	country: string;
 	currency: string;
 	basket: SpendItem[];
+	currentStep: number;
 
 	// Actions
 	setCountry: (country: string, currency: string) => void;
@@ -14,6 +15,7 @@ interface AppState {
 	updateInBasket: (id: string, updates: Partial<SpendItem>) => void;
 	removeFromBasket: (id: string) => void;
 	resetBasket: () => void;
+	setStep: (step: number) => void;
 }
 
 export const useStore = create<AppState>()(
@@ -22,6 +24,7 @@ export const useStore = create<AppState>()(
 			country: 'UK',
 			currency: 'GBP',
 			basket: [],
+			currentStep: 0,
 
 			setCountry: (country, currency) => set((state) => {
 				// Convert existing basket items to new currency
@@ -49,7 +52,9 @@ export const useStore = create<AppState>()(
 				basket: state.basket.filter(i => i.id !== id)
 			})),
 
-			resetBasket: () => set({ basket: [] })
+			resetBasket: () => set({ basket: [] }),
+
+			setStep: (step) => set({ currentStep: step })
 		}),
 		{
 			name: 'svs-storage-v1',

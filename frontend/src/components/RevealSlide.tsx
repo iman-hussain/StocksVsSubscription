@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { calculateMultiStockComparison, calculateIndividualComparison, type SimulationResult, type SpendItem } from '../lib/financials';
 import type { StockDataPoint } from '../lib/financials';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Share2, Download, Twitter, Linkedin, Facebook } from 'lucide-react';
 import { useCountUp } from '../lib/useCountUp';
 import CurrencyRain from './CurrencyRain';
@@ -14,6 +14,45 @@ import html2canvas from 'html2canvas';
 interface Props {
 	onBack: () => void;
 }
+
+const TooltipWrapper = ({ count, names }: { count: number; names: string[] }) => {
+	const [isOpen, setIsOpen] = useState(false);
+
+	return (
+		<span
+			className="relative inline-block cursor-help z-50"
+			onMouseEnter={() => setIsOpen(true)}
+			onMouseLeave={() => setIsOpen(false)}
+			onClick={(e) => {
+				e.stopPropagation();
+				setIsOpen(!isOpen);
+			}}
+		>
+			<span className="underline decoration-dotted underline-offset-4">
+				{count} others
+			</span>
+			{/* Dropdown */}
+			<AnimatePresence>
+				{isOpen && (
+					<motion.span
+						initial={{ opacity: 0, y: 5 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{ opacity: 0, y: 5 }}
+						transition={{ duration: 0.2 }}
+						className="absolute left-0 top-full mt-2 bg-black/95 border border-white/20 rounded-lg p-3 min-w-48 shadow-xl z-50"
+					>
+						<span className="text-xs text-gray-400 block mb-2">Also includes:</span>
+						{names.map((name, idx) => (
+							<span key={idx} className="block text-sm text-white py-0.5">
+								{name}
+							</span>
+						))}
+					</motion.span>
+				)}
+			</AnimatePresence>
+		</span>
+	);
+};
 
 const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult }) => {
 	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result!.currency });
@@ -122,24 +161,36 @@ export const RevealSlide = ({ onBack }: Props) => {
 
 	const handleShare = async (platform?: 'twitter' | 'linkedin' | 'facebook' | 'download') => {
 		const card = document.getElementById('share-card');
-		if (!card) return;
+		if (!card) {
+			console.error('Share card element not found via ID');
+			return;
+		}
+
+		console.log('Starting share capture...', { platform, cardWidth: card.offsetWidth, cardHeight: card.offsetHeight });
 
 		try {
 			const canvas = await html2canvas(card, {
 				scale: 2,
 				backgroundColor: '#000000',
 				useCORS: true,
+				logging: true, // Enable html2canvas internal logs
 			});
+
+			console.log('Canvas captured successfully');
 
 			const image = canvas.toDataURL('image/png');
 			const blob = await (await fetch(image)).blob();
 			const file = new File([blob], 'verdict.png', { type: 'image/png' });
 
+			console.log('Image blob created', blob.size);
+
 			const shareUrl = "https://svs.imanhussain.com";
-			const shareText = `I spent ${formatter.format(result!.totalSpent)} on subscriptions. If I invested it, I'd have ${formatter.format(result!.investmentValue)}! Check your stack:`;
+			const itemNames = getItemNamesString();
+			const shareText = `I spent ${formatter.format(result!.totalSpent)} on ${itemNames}. If I invested it, I'd have ${formatter.format(result!.investmentValue)}! Check your stack:`;
 
 			// Mobile native share (when no platform specified)
 			if (!platform && typeof navigator !== 'undefined' && (navigator as any).share && (navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
+				console.log('Triggering native share');
 				await (navigator as any).share({
 					title: 'Stocks vs Subscription',
 					text: shareText,
@@ -150,28 +201,45 @@ export const RevealSlide = ({ onBack }: Props) => {
 			}
 
 			// Desktop Download
-			if (platform === 'download') {
+			// Helper function to trigger download
+			const triggerDownload = () => {
 				const link = document.createElement('a');
 				link.download = 'stocks-vs-subscription-verdict.png';
 				link.href = image;
+				document.body.appendChild(link);
 				link.click();
+				document.body.removeChild(link);
+			};
+
+			if (platform === 'download') {
+				console.log('Triggering download');
+				triggerDownload();
 				return;
 			}
 
-			// Socials
-			let intentUrl = '';
-			switch (platform) {
-				case 'twitter':
-					intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-					break;
-				case 'linkedin':
-					intentUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
-					break;
-				case 'facebook':
-					intentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-					break;
+			// Socials - For desktop, we download the image first so user can attach it, then open the intent
+			if (platform) {
+				console.log('Triggering download + social intent');
+				triggerDownload(); // Download image for manual attachment
+
+				let intentUrl = '';
+				switch (platform) {
+					case 'twitter':
+						intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+						break;
+					case 'linkedin':
+						intentUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`; // LinkedIn summary/title params are often ignored, but URL works
+						break;
+					case 'facebook':
+						intentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
+						break;
+				}
+				if (intentUrl) {
+					console.log('Opening social intent:', intentUrl);
+					// Small delay to ensure download starts first
+					setTimeout(() => window.open(intentUrl, '_blank'), 100);
+				}
 			}
-			if (intentUrl) window.open(intentUrl, '_blank');
 
 		} catch (err) {
 			console.error('Share failed', err);
@@ -372,14 +440,14 @@ export const RevealSlide = ({ onBack }: Props) => {
 			initial={{ opacity: 0 }}
 			animate={{ opacity: 1 }}
 			transition={{ duration: 1, ease: "easeInOut" }}
-			className="min-h-dvh w-full flex flex-col p-6 max-w-7xl mx-auto pt-12 pb-32 relative"
+			className="min-h-dvh w-full flex flex-col p-4 md:p-6 max-w-7xl mx-auto pt-16 md:pt-24 pb-8 md:pb-32 relative"
 		>
 			<div className="fixed top-4 inset-x-0 z-10 pointer-events-none">
-				<div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+				<div className="max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center">
 					<motion.button
 						whileHover={{ x: -4 }}
 						onClick={onBack}
-						className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-400 hover:text-white transition-all duration-300 pointer-events-auto"
+						className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-400 hover:text-white transition-all duration-300 pointer-events-auto shadow-lg backdrop-blur-md"
 					>
 						<ChevronLeft size={16} className="text-brand-neon" />
 						<span className="font-bold">Back</span>
@@ -392,17 +460,17 @@ export const RevealSlide = ({ onBack }: Props) => {
 			</div>
 
 			{/* Verdict Section - Animated */}
-			<div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+			<div className="flex flex-col md:flex-row justify-between items-end mb-4 md:mb-12 gap-4 md:gap-6">
 				<div>
 					<motion.h2
 						initial={{ opacity: 0, y: 10 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-						className="text-gray-400 uppercase tracking-widest text-sm font-bold mb-2"
+						className="text-gray-400 uppercase tracking-widest text-[10px] md:text-sm font-bold mb-1 md:mb-2"
 					>
 						The Verdict
 					</motion.h2>
-					<h1 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight">
+					<h1 className="font-bold leading-tight" style={{ fontSize: 'clamp(1.5rem, 5vw, 3rem)' }}>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
@@ -435,20 +503,10 @@ export const RevealSlide = ({ onBack }: Props) => {
 						>
 							{itemNamesParts.prefix}
 							{itemNamesParts.hasOthers && (
-								<span className="relative inline-block group cursor-help">
-									<span className="underline decoration-dotted underline-offset-4">
-										{itemNamesParts.othersCount} others
-									</span>
-									{/* Hover dropdown */}
-									<span className="absolute left-0 top-full mt-2 bg-black/95 border border-white/20 rounded-lg p-3 min-w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
-										<span className="text-xs text-gray-400 block mb-2">Also includes:</span>
-										{itemNamesParts.otherNames.map((name, idx) => (
-											<span key={idx} className="block text-sm text-white py-0.5">
-												{name}
-											</span>
-										))}
-									</span>
-								</span>
+								<TooltipWrapper
+									count={itemNamesParts.othersCount}
+									names={itemNamesParts.otherNames}
+								/>
 							)}
 						</motion.span>
 						<motion.span
@@ -492,8 +550,8 @@ export const RevealSlide = ({ onBack }: Props) => {
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.6, delay: 1.1, ease: "easeOut" }}
 				>
-					<div className="text-sm text-gray-400">Total Return</div>
-					<div className={`text-6xl font-black tracking-tighter ${result!.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`}>
+					<div className="text-[10px] md:text-sm text-gray-400">Total Return</div>
+					<div className={`font-black tracking-tighter ${result!.growthPercentage >= 0 ? 'text-brand-neon' : 'text-red-500'}`} style={{ fontSize: 'clamp(2.5rem, 8vw, 4.5rem)' }}>
 						{result!.growthPercentage > 0 ? '+' : ''}{animatedGrowth.toFixed(0)}%
 					</div>
 				</motion.div>
@@ -504,7 +562,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 				initial={{ opacity: 0 }}
 				animate={{ opacity: 1 }}
 				transition={{ duration: 1, delay: 0.2, ease: "easeInOut" }}
-				className="w-full h-[350px] relative mb-12"
+				className="w-full h-[220px] md:h-[350px] relative mb-6 md:mb-12"
 			>
 				<div className="glass-panel p-4 rounded-3xl w-full h-full flex flex-col">
 					<div className="flex items-center gap-4 mb-4 flex-wrap text-xs text-gray-300">
@@ -653,7 +711,7 @@ export const RevealSlide = ({ onBack }: Props) => {
 
 
 			{/* Hidden Share Card for Screenshot Generation */}
-			<div className="fixed top-0 left-[-9999px] pointer-events-none opacity-0">
+			<div className="fixed top-0 left-[-9999px] pointer-events-none">
 				{result && (
 					<ShareCard
 						result={result}
