@@ -453,6 +453,18 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 		);
 	}
 
+	// Smart currency formatter: show decimals if not .00, hide if .00
+	const formatCurrency = (value: number) => {
+		const hasDecimals = value % 1 !== 0;
+		const smartFormatter = new Intl.NumberFormat('en-GB', {
+			style: 'currency',
+			currency: result!.currency,
+			minimumFractionDigits: hasDecimals ? 2 : 0,
+			maximumFractionDigits: hasDecimals ? 2 : 0
+		});
+		return smartFormatter.format(value);
+	};
+
 	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result!.currency });
 
 	return (
@@ -497,31 +509,31 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-							className="inline-block"
+							className="inline"
 						>
-							You spent {' '}
+							You spent{' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.5, ease: "easeOut" }}
-							className={`${spentColorClass} inline-block ms-1`}
+							className={`${spentColorClass} inline`}
 						>
-							{formatter.format(animatedSpent)}
+							{formatCurrency(animatedSpent)}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
-							className="inline-block ms-1"
+							className="inline"
 						>
-							{' '} on {' '}
+							{' '}on{' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.7, ease: "easeOut" }}
-							className="text-white inline-block"
+							className="text-white inline"
 						>
 							{itemNamesParts.prefix}
 							{itemNamesParts.hasOthers && (
@@ -529,40 +541,25 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 									count={itemNamesParts.othersCount}
 									names={itemNamesParts.otherNames}
 								/>
-							)}
-						</motion.span>
-						<motion.span
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							transition={{ duration: 0.4, delay: 0.7 }}
-							className="inline-block"
-						>
-							.
+							)}.
 						</motion.span>
 						<br />
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 0.5, y: 0 }}
 							transition={{ duration: 0.6, delay: 0.9, ease: "easeOut" }}
-							className="inline-block mt-1"
+							className="inline mt-1"
 						>
-							If you'd invested {thatWord} in {stockWord} instead, you'd have {' '}
+							If you'd invested {thatWord} in {stockWord} instead, you'd have{' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.6, delay: 1.1, ease: "easeOut" }}
-							className={`${investmentColorClass} inline-block ms-1`}
+							className={`${investmentColorClass} inline`}
+							style={{ whiteSpace: 'nowrap' }}
 						>
-							{formatter.format(animatedInvestment)}
-						</motion.span>
-						<motion.span
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							transition={{ duration: 0.4, delay: 1.1 }}
-							className="inline-block"
-						>
-							.
+							{formatCurrency(animatedInvestment)}.
 						</motion.span>
 					</h1>
 				</div>

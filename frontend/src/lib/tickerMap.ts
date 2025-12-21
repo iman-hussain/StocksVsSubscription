@@ -574,15 +574,15 @@ export function getOneOffPresets(): ProductMapping[] {
 
 export const HABIT_PRESETS: HabitMapping[] = [
 	{ name: "Morning Coffee", ticker: "SBUX", defaultFrequency: "daily", defaultCost: 3.50 },
-	{ name: "Fast Food Meal", ticker: "MCD", defaultFrequency: "weekly", defaultCost: 10.00 },
+	{ name: "Big Mac Meal", ticker: "MCD", defaultFrequency: "weekly", defaultCost: 5.99 },
 	{ name: "Food Delivery Orders", ticker: "UBER", defaultFrequency: "weekly", defaultCost: 25.00 },
 	{ name: "Pack of Cigarettes", ticker: "BTI", defaultFrequency: "daily", defaultCost: 14.00 },
 	{ name: "Vape / Nicotine Pods", ticker: "PM", defaultFrequency: "weekly", defaultCost: 10.00 },
-	{ name: "Zyn / Snus Pouch", ticker: "PM", defaultFrequency: "daily", defaultCost: 5.00 },
-	{ name: "Pint of Beer / Lager", ticker: "BUD", defaultFrequency: "weekly", defaultCost: 6.00 },
+	{ name: "Zyn's", ticker: "PM", defaultFrequency: "daily", defaultCost: 5.00 },
+	{ name: "Pint of Beer", ticker: "BUD", defaultFrequency: "weekly", defaultCost: 6.00 },
 	{ name: "Bottle of Wine", ticker: "DEO", defaultFrequency: "weekly", defaultCost: 12.00 },
 	{ name: "Cannabis / CBD", ticker: "MO", defaultFrequency: "weekly", defaultCost: 40.00 },
-	{ name: "Energy Drinks", ticker: "MNST", defaultFrequency: "daily", defaultCost: 2.50 },
+	{ name: "Monster Energy", ticker: "MNST", defaultFrequency: "daily", defaultCost: 2.50 },
 ];
 
 /**
