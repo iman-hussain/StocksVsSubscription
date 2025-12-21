@@ -4,10 +4,12 @@ import { calculateMultiStockComparison, calculateIndividualComparison, type Simu
 import type { StockDataPoint } from '../lib/financials';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Share2, Download, Twitter, Linkedin, Facebook } from 'lucide-react';
 import { useCountUp } from '../lib/useCountUp';
 import CurrencyRain from './CurrencyRain';
 import { CurrencySwitcher } from './CurrencySwitcher';
+import { ShareCard } from './ShareCard';
+import html2canvas from 'html2canvas';
 
 interface Props {
 	onBack: () => void;
@@ -108,6 +110,73 @@ export const RevealSlide = ({ onBack }: Props) => {
 		};
 	};
 	const itemNamesParts = getItemNamesParts();
+
+	const getItemNamesString = () => {
+		const names = basket.map(item => item.name);
+		if (names.length === 0) return '';
+		if (names.length === 1) return names[0];
+		if (names.length === 2) return `${names[0]} & ${names[1]}`;
+		if (names.length === 3) return `${names[0]}, ${names[1]} & ${names[2]}`;
+		return `${names[0]}, ${names[1]} & ${names.length - 2} others`;
+	};
+
+	const handleShare = async (platform?: 'twitter' | 'linkedin' | 'facebook' | 'download') => {
+		const card = document.getElementById('share-card');
+		if (!card) return;
+
+		try {
+			const canvas = await html2canvas(card, {
+				scale: 2,
+				backgroundColor: '#000000',
+				useCORS: true,
+			});
+
+			const image = canvas.toDataURL('image/png');
+			const blob = await (await fetch(image)).blob();
+			const file = new File([blob], 'verdict.png', { type: 'image/png' });
+
+			const shareUrl = "https://svs.imanhussain.com";
+			const shareText = `I spent ${formatter.format(result!.totalSpent)} on subscriptions. If I invested it, I'd have ${formatter.format(result!.investmentValue)}! Check your stack:`;
+
+			// Mobile native share (when no platform specified)
+			if (!platform && typeof navigator !== 'undefined' && (navigator as any).share && (navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
+				await (navigator as any).share({
+					title: 'Stocks vs Subscription',
+					text: shareText,
+					url: shareUrl,
+					files: [file]
+				});
+				return;
+			}
+
+			// Desktop Download
+			if (platform === 'download') {
+				const link = document.createElement('a');
+				link.download = 'stocks-vs-subscription-verdict.png';
+				link.href = image;
+				link.click();
+				return;
+			}
+
+			// Socials
+			let intentUrl = '';
+			switch (platform) {
+				case 'twitter':
+					intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+					break;
+				case 'linkedin':
+					intentUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+					break;
+				case 'facebook':
+					intentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+					break;
+			}
+			if (intentUrl) window.open(intentUrl, '_blank');
+
+		} catch (err) {
+			console.error('Share failed', err);
+		}
+	};
 
 	// Dynamic grammar helpers for verdict text
 	const tickerCount = tickers.length;
@@ -503,6 +572,58 @@ export const RevealSlide = ({ onBack }: Props) => {
 				</div>
 			</motion.div>
 
+			{/* Share Section - Below Main Graph */}
+			<motion.div
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				transition={{ duration: 1, delay: 0.3 }}
+				className="w-full mb-12"
+			>
+				<h3 className="text-sm font-semibold text-gray-300 mb-4">Share Verdict</h3>
+				<div className="flex flex-wrap gap-4">
+					{/* Primary Share / Download Button */}
+					<button
+						onClick={() => handleShare(window.innerWidth < 768 ? undefined : 'download')}
+						className="bg-brand-neon hover:bg-white text-brand-dark px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors min-w-[200px] justify-center"
+					>
+						{typeof navigator !== 'undefined' && (navigator as any).share && window.innerWidth < 768 ? (
+							<>
+								<Share2 size={18} /> Share Verdict
+							</>
+						) : (
+							<>
+								<Download size={18} /> Download Screenshot
+							</>
+						)}
+					</button>
+
+					{/* Desktop Social Buttons */}
+					<div className="flex gap-2">
+						<button
+							onClick={() => handleShare('twitter')}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							title="Share on X"
+						>
+							<Twitter size={20} />
+						</button>
+						<button
+							onClick={() => handleShare('linkedin')}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							title="Share on LinkedIn"
+						>
+							<Linkedin size={20} />
+						</button>
+						<button
+							onClick={() => handleShare('facebook')}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							title="Share on Facebook"
+						>
+							<Facebook size={20} />
+						</button>
+					</div>
+				</div>
+			</motion.div>
+
 			{/* Individual Item Charts Grid */}
 			{basket.length > 1 && (
 				<motion.div
@@ -529,6 +650,22 @@ export const RevealSlide = ({ onBack }: Props) => {
 					</div>
 				</motion.div>
 			)}
+
+
+			{/* Hidden Share Card for Screenshot Generation */}
+			<div className="fixed top-0 left-[-9999px] pointer-events-none opacity-0">
+				{result && (
+					<ShareCard
+						result={result}
+						itemNames={getItemNamesString()}
+						spent={result.totalSpent}
+						investmentValue={result.investmentValue}
+						formattedSpent={formatter.format(result.totalSpent)}
+						formattedInvestment={formatter.format(result.investmentValue)}
+						tickers={tickers}
+					/>
+				)}
+			</div>
 		</motion.div>
 	);
 };
