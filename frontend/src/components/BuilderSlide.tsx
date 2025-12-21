@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, ArrowRight, ChevronLeft, X, Repeat, ShoppingBag, Coffee, Flame } from 'lucide-react';
-import { getSubscriptionPresets, getOneOffPresets, getHabitPresets, resolveTicker, resolveProduct, SUBSCRIPTION_TICKERS, PRODUCT_DATABASE } from '../lib/tickerMap';
+import { fetchPresets, resolveTicker, resolveProduct, type PresetsResponse } from '../lib/tickerMap';
 import { resolveQuery, type ResolveResponse } from '../lib/api';
-import { convertPrice, getCurrencySymbol } from '../lib/currency';
+import { convertPrice, formatCurrency, getCurrencySymbol } from '../lib/currency';
 import { CurrencySwitcher } from './CurrencySwitcher';
 import type { SpendFrequency } from '../lib/financials';
 
@@ -107,10 +107,31 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 
 	const debounceTimer = useRef<number | null>(null);
 
-	// Get presets from ticker map
-	const subscriptionPresets = getSubscriptionPresets();
-	const oneOffPresets = getOneOffPresets();
-	const habitPresets = getHabitPresets();
+	// Presets loaded from API
+	const [presetsData, setPresetsData] = useState<PresetsResponse | null>(null);
+	const [, setPresetsLoading] = useState(true);
+
+	// Fetch presets on mount
+	useEffect(() => {
+		let cancelled = false;
+		fetchPresets()
+			.then((data) => {
+				if (!cancelled) {
+					setPresetsData(data);
+					setPresetsLoading(false);
+				}
+			})
+			.catch((err) => {
+				console.error('Failed to fetch presets:', err);
+				if (!cancelled) setPresetsLoading(false);
+			});
+		return () => { cancelled = true; };
+	}, []);
+
+	// Derive presets from API data
+	const subscriptionPresets = presetsData?.subscriptions ?? [];
+	const oneOffPresets = presetsData?.products ?? [];
+	const habitPresets = presetsData?.habits ?? [];
 
 	const openPresetModal = (preset: { name: string; defaultCost?: number; rtp?: number; releaseDate?: string; cost?: number; ticker?: string; defaultFrequency?: SpendFrequency }) => {
 		const isSubscription = activeTab === 'subscriptions';
@@ -137,7 +158,7 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 			cost: parseFloat(presetCost),
 			currency: currency,
 			startDate: presetDate,
-			ticker: presetModal.ticker ?? resolveTicker(presetModal.name),
+			ticker: presetModal.ticker ?? resolveTicker(presetModal.name, subscriptionPresets),
 			frequency: presetFrequency,
 		});
 		setPresetModal(null);
@@ -178,12 +199,12 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 			setDetectedProduct(null);
 		} else {
 			// Search subscriptions
-			const subFiltered = SUBSCRIPTION_TICKERS
+			const subFiltered = subscriptionPresets
 				.filter((s) => s.name.toLowerCase().includes(query) || s.aliases?.some(a => a.toLowerCase().includes(query)))
 				.map((s) => ({ label: s.name, ticker: s.ticker, price: convertPrice(s.defaultCost, currency) }));
 
 			// Search products
-			const prodFiltered = PRODUCT_DATABASE
+			const prodFiltered = oneOffPresets
 				.filter((p) => p.name.toLowerCase().includes(query) || p.aliases.some((a) => a.includes(query)))
 				.map((p) => ({ label: p.name, ticker: p.ticker, price: convertPrice(p.rtp, currency), date: p.releaseDate }));
 
@@ -191,7 +212,7 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 			setSuggestions([...subFiltered, ...prodFiltered].slice(0, 8));
 
 			// Try to detect a product for auto-fill
-			const product = resolveProduct(value);
+			const product = resolveProduct(value, oneOffPresets);
 			if (product) {
 				const convertedPrice = convertPrice(product.rtp, currency);
 				setDetectedProduct({
@@ -547,46 +568,127 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 				{/* Presets - Subscriptions: simple grid, One-off: grouped by ticker */}
 				<div className="max-h-48 overflow-y-auto pr-1">
 					{activeTab === 'habits' ? (
-						<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-							{habitPresets.map((p, idx) => (
-								<motion.button
-									key={p.name}
-									initial={{ opacity: 0, y: 10 }}
-									animate={{ opacity: 1, y: 0 }}
-									transition={{ delay: 0.02 * idx, duration: 0.3 }}
-									whileHover={{ scale: 1.03, y: -1 }}
-									whileTap={{ scale: 0.98 }}
-									onClick={() => openPresetModal(p)}
-									className="glass-panel px-3 py-2 rounded-lg whitespace-nowrap hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left"
-								>
-									<div className="font-semibold">{p.name}</div>
-									<div className="text-xs text-gray-400 flex justify-between items-center mt-0.5">
-										<span>{getFrequencyBadge(p.defaultFrequency).label}</span>
-										<span className="text-gray-500 font-mono">{p.ticker}</span>
-									</div>
-								</motion.button>
-							))}
+						<div className="flex flex-col gap-6">
+							{/* Popular Habits */}
+							<div>
+								<div className="text-xs text-brand-neon font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
+									<Flame size={12} fill="currentColor" /> Popular
+								</div>
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+									{habitPresets.slice(0, 3).map((p, idx) => (
+										<motion.button
+											key={p.name}
+											initial={{ opacity: 0, y: 10 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{ delay: 0.02 * idx, duration: 0.3 }}
+											whileHover={{ scale: 1.03, y: -1 }}
+											whileTap={{ scale: 0.98 }}
+											onClick={() => openPresetModal(p)}
+											className="glass-panel px-3 py-2 rounded-lg hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left h-full break-words leading-tight bg-brand-neon/5 border-brand-neon/20"
+											title={p.name}
+										>
+											<div className="font-semibold">{p.name}</div>
+											<div className="text-xs text-gray-400 mt-1">
+												{getFrequencyBadge(p.defaultFrequency).label} • <span className="text-gray-500 font-mono">{p.ticker}</span>
+											</div>
+										</motion.button>
+									))}
+								</div>
+							</div>
+
+							{/* All Habits */}
+							<div className="flex flex-col gap-4">
+								<div className="text-xs text-gray-500 font-bold uppercase tracking-wider border-t border-white/10 pt-4">
+									More Habits
+								</div>
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+									{habitPresets.slice(3).map((p, idx) => (
+										<motion.button
+											key={p.name}
+											initial={{ opacity: 0, y: 10 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{ delay: 0.02 * (idx + 3), duration: 0.3 }}
+											whileHover={{ scale: 1.03, y: -1 }}
+											whileTap={{ scale: 0.98 }}
+											onClick={() => openPresetModal(p)}
+											className="glass-panel px-3 py-2 rounded-lg whitespace-nowrap hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left"
+										>
+											<div className="font-semibold text-xs sm:text-sm truncate" title={p.name}>{p.name}</div>
+											<div className="text-[10px] text-gray-400 flex justify-between items-center mt-0.5">
+												<span>{getFrequencyBadge(p.defaultFrequency).label}</span>
+												<span className="text-gray-500 font-mono opacity-50">{p.ticker}</span>
+											</div>
+										</motion.button>
+									))}
+								</div>
+							</div>
 						</div>
 					) : activeTab === 'subscriptions' ? (
-						<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-							{subscriptionPresets.map((p, idx) => (
-								<motion.button
-									key={p.name}
-									initial={{ opacity: 0, y: 10 }}
-									animate={{ opacity: 1, y: 0 }}
-									transition={{ delay: 0.02 * idx, duration: 0.3 }}
-									whileHover={{ scale: 1.03, y: -1 }}
-									whileTap={{ scale: 0.98 }}
-									onClick={() => openPresetModal(p)}
-									className="glass-panel px-3 py-2 rounded-lg whitespace-nowrap hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left"
-								>
-									<div className="font-semibold">{p.name}</div>
-									<div className="text-xs text-gray-400 flex justify-between items-center mt-0.5">
-										<span>£{p.defaultCost}</span>
-										<span className="text-gray-500 font-mono">{p.ticker}</span>
+						<div className="flex flex-col gap-6">
+							{/* Popular Subscriptions */}
+							<div>
+								<div className="text-xs text-brand-neon font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
+									<Flame size={12} fill="currentColor" /> Popular
+								</div>
+								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+									{subscriptionPresets.slice(0, 3).map((p, idx) => (
+										<motion.button
+											key={p.name}
+											initial={{ opacity: 0, y: 10 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{ delay: 0.02 * idx, duration: 0.3 }}
+											whileHover={{ scale: 1.03, y: -1 }}
+											whileTap={{ scale: 0.98 }}
+											onClick={() => openPresetModal(p)}
+											className="glass-panel px-3 py-2 rounded-lg hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left h-full break-words leading-tight bg-brand-neon/5 border-brand-neon/20"
+											title={p.name}
+										>
+											<div className="font-semibold">{p.name}</div>
+											<div className="text-xs text-gray-400 mt-1">
+												£{p.defaultCost} • <span className="text-gray-500 font-mono">{p.ticker}</span>
+											</div>
+										</motion.button>
+									))}
+								</div>
+							</div>
+
+							{/* All Subscriptions by Category */}
+							<div className="flex flex-col gap-4">
+								<div className="text-xs text-gray-500 font-bold uppercase tracking-wider border-t border-white/10 pt-4">
+									All Subscriptions
+								</div>
+								{Object.entries(
+									subscriptionPresets.reduce((acc, p) => {
+										const category = p.category || 'Other';
+										if (!acc[category]) acc[category] = [];
+										acc[category].push(p);
+										return acc;
+									}, {} as Record<string, typeof subscriptionPresets>)
+								).sort().map(([category, items]) => (
+									<div key={category}>
+										<div className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-2">
+											{category}
+										</div>
+										<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+											{items.map((p, idx) => (
+												<motion.button
+													key={p.name}
+													initial={{ opacity: 0, y: 10 }}
+													animate={{ opacity: 1, y: 0 }}
+													transition={{ delay: 0.02 * idx, duration: 0.3 }}
+													whileHover={{ scale: 1.03, y: -1 }}
+													whileTap={{ scale: 0.98 }}
+													onClick={() => openPresetModal(p)}
+													className="glass-panel px-3 py-2 rounded-lg whitespace-nowrap hover:bg-brand-neon/20 hover:border-brand-neon transition-colors text-sm text-left"
+												>
+													<div className="font-semibold text-xs truncate" title={p.name}>{p.name}</div>
+													<div className="text-[10px] text-gray-500 font-mono opacity-50">{p.ticker}</div>
+												</motion.button>
+											))}
+										</div>
 									</div>
-								</motion.button>
-							))}
+								))}
+							</div>
 						</div>
 					) : (
 						/* One-off presets grouped by ticker/company */
@@ -598,9 +700,9 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 								</div>
 								<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
 									{[
-										{ name: 'iPhone 15 (128GB)', defaultCost: 799, ticker: 'AAPL', releaseDate: '2023-09-22' },
 										{ name: 'Tesla Model 3', defaultCost: 38900, ticker: 'TSLA', releaseDate: '2019-06-01' },
-										{ name: 'MacBook Air (M1)', defaultCost: 999, ticker: 'AAPL', releaseDate: '2020-11-17' },
+										{ name: 'iPhone 11 64GB', defaultCost: 699, ticker: 'AAPL', releaseDate: '2019-09-20' },
+										{ name: 'MacBook Air 13" M1 (Late 2020)', defaultCost: 999, ticker: 'AAPL', releaseDate: '2020-11-17' },
 									].map((p, idx) => (
 										<motion.button
 											key={p.name}
@@ -688,7 +790,7 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 									>
 										<div className="font-semibold truncate">{s.label} ({s.ticker})</div>
 										{typeof s.price === 'number' && (
-											<div className="text-gray-400">{getCurrencySymbol(currency)}{s.price.toFixed(2)}</div>
+											<div className="text-gray-400">{formatCurrency(s.price, currency)}</div>
 										)}
 									</button>
 								))}
@@ -703,7 +805,7 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 									className="text-xs text-brand-neon bg-brand-neon/10 p-2 rounded flex items-center justify-between"
 								>
 									<span>Detected: {detectedProduct.name} • {detectedProduct.ticker}</span>
-									<span className="font-bold">{getCurrencySymbol(currency)}{detectedProduct.cost}</span>
+									<span className="font-bold">{formatCurrency(detectedProduct.cost, currency)}</span>
 								</motion.div>
 							)}
 						</AnimatePresence>
@@ -723,20 +825,24 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 						</div>
 
 						<div className="flex flex-col sm:flex-row gap-4">
-							<input
-								type="text"
-								inputMode="decimal"
-								placeholder="Cost"
-								value={cost}
-								onChange={e => setCost(e.target.value)}
-								className="flex-1 bg-transparent border-b border-white/20 p-2 outline-none focus:border-brand-neon placeholder-gray-600"
-							/>
-							<input
-								type="date"
-								value={date}
-								onChange={e => setDate(e.target.value)}
-								className="flex-1 bg-transparent border-b border-white/20 p-2 outline-none focus:border-brand-neon text-white/50"
-							/>
+							<div className="flex-1 min-w-0">
+								<input
+									type="text"
+									inputMode="decimal"
+									placeholder="Cost"
+									value={cost}
+									onChange={e => setCost(e.target.value)}
+									className="w-full bg-transparent border-b border-white/20 p-2 outline-none focus:border-brand-neon placeholder-gray-600"
+								/>
+							</div>
+							<div className="flex-1 min-w-0">
+								<input
+									type="date"
+									value={date}
+									onChange={e => setDate(e.target.value)}
+									className="w-full bg-transparent border-b border-white/20 p-2 outline-none focus:border-brand-neon text-white/50"
+								/>
+							</div>
 						</div>
 						<motion.button
 							whileHover={{ scale: 1.02, y: -2 }}
@@ -771,13 +877,22 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 									return (
 										<motion.div
 											key={item.id}
+											role="button"
+											tabIndex={0}
+											aria-label={`Edit ${item.name}`}
 											initial={{ opacity: 0, x: -20, scale: 0.95 }}
 											animate={{ opacity: 1, x: 0, scale: 1 }}
 											exit={{ opacity: 0, height: 0, x: -20 }}
 											transition={{ delay: 0.05 * idx, duration: 0.3 }}
 											whileHover={{ x: 4 }}
 											onClick={() => openEditModal(item)}
-											className="cursor-pointer"
+											onKeyDown={(e) => {
+												if (e.key === 'Enter' || e.key === ' ') {
+													e.preventDefault();
+													openEditModal(item);
+												}
+											}}
+											className="w-full text-left focus:outline-none focus:ring-2 focus:ring-brand-neon/50 rounded-xl cursor-pointer"
 										>
 											<div className="glass-panel p-4 rounded-xl flex justify-between items-center group">
 												<div>
@@ -792,8 +907,10 @@ export const BuilderSlide = ({ onNext, onBack, isDesktopSplit = false }: Props) 
 													</div>
 												</div>
 												<div className="flex items-center gap-4">
-													<span className="font-mono text-brand-neon">{getCurrencySymbol(currency)}{item.cost}</span>
+													<span className="font-mono text-brand-neon">{formatCurrency(item.cost, currency)}</span>
 													<motion.button
+														type="button"
+														aria-label={`Remove ${item.name}`}
 														whileHover={{ scale: 1.2, rotate: 90 }}
 														whileTap={{ scale: 0.9 }}
 														onClick={(e) => {

@@ -51,8 +51,8 @@ export function getExchangeRate(fromCurrency: string, toCurrency: string): numbe
  * @param toCurrency - Target ISO code
  */
 export function convertBetween(amount: number, fromCurrency: string, toCurrency: string): number {
-  const rate = getExchangeRate(fromCurrency, toCurrency);
-  return Math.round(amount * rate * 100) / 100;
+	const rate = getExchangeRate(fromCurrency, toCurrency);
+	return Math.round(amount * rate * 100) / 100;
 }
 
 /**
@@ -71,4 +71,33 @@ export function getCurrencySymbol(currencyCode: string): string {
 		KRW: '₩',
 	};
 	return symbols[currencyCode] ?? currencyCode;
+}
+
+/**
+ * Formats a currency value with smart decimal handling.
+ * Shows 2 decimal places if value has meaningful cents (e.g., £4.70).
+ * Hides decimals if they are .00 (e.g., £5 instead of £5.00).
+ * Uses getCurrencySymbol for proper symbols ($ not US$).
+ * @param value - The numeric value to format
+ * @param currencyCode - Currency code (e.g., 'GBP', 'USD', 'EUR')
+ * @returns Formatted currency string (e.g., '£4.70' or '$5')
+ */
+export function formatCurrency(value: number, currencyCode: string): string {
+	const symbol = getCurrencySymbol(currencyCode);
+
+	// Round to 2 decimal places first to handle floating point issues
+	const rounded = Math.round(value * 100) / 100;
+
+	// Check if the value is a whole number (no meaningful cents)
+	const isWholeNumber = rounded === Math.floor(rounded);
+
+	if (isWholeNumber) {
+		// No decimals needed
+		return `${symbol}${Math.round(rounded).toLocaleString('en-GB')}`;
+	} else {
+		// Always show exactly 2 decimal places
+		const [intPart, decPart] = rounded.toFixed(2).split('.');
+		const formattedInt = parseInt(intPart).toLocaleString('en-GB');
+		return `${symbol}${formattedInt}.${decPart}`;
+	}
 }

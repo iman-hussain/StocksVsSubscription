@@ -1,5 +1,6 @@
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { type SimulationResult } from '../lib/financials';
+import { formatCurrency } from '../lib/currency';
 
 interface ShareCardProps {
 	result: SimulationResult;
@@ -175,7 +176,7 @@ export const ShareCard = ({ result, itemNames, formattedSpent, formattedInvestme
 						tickLine={false}
 						axisLine={false}
 						tick={{ fill: '#9ca3af', fontSize: 14, fontFamily: 'Inter' }}
-						tickFormatter={(val) => `£${val}`}
+						tickFormatter={(val) => formatCurrency(val, result.currency)}
 						width={70}
 					/>
 					<Area

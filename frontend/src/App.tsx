@@ -1,8 +1,17 @@
 import { useStore } from './store';
 import { IntroSlide } from './components/IntroSlide';
 import { BuilderSlide } from './components/BuilderSlide';
-import { RevealSlide } from './components/RevealSlide';
 import { Footer } from './components/Footer';
+import { lazy, Suspense } from 'react';
+
+const RevealSlide = lazy(() => import('./components/RevealSlide').then(m => ({ default: m.RevealSlide })));
+
+const LoadingSpinner = () => (
+	<div className="flex-1 flex flex-col items-center justify-center p-12 space-y-4">
+		<div className="w-12 h-12 border-4 border-brand-neon/20 border-t-brand-neon rounded-full animate-spin" />
+		<p className="text-gray-400 font-medium animate-pulse">Loading Simulation...</p>
+	</div>
+);
 
 function App() {
 	const { currentStep, setStep } = useStore();
@@ -20,7 +29,11 @@ function App() {
 					{/* Mobile/Tablet View (< 1024px) */}
 					<div className="lg:hidden flex-1 flex flex-col w-full">
 						{currentStep === 1 && <BuilderSlide onNext={next} onBack={back} />}
-						{currentStep === 2 && <RevealSlide onBack={back} />}
+						{currentStep === 2 && (
+							<Suspense fallback={<LoadingSpinner />}>
+								<RevealSlide onBack={back} />
+							</Suspense>
+						)}
 					</div>
 
 					{/* Desktop Split View (>= 1024px) */}
@@ -39,10 +52,12 @@ function App() {
 
 						{/* Right: Verdict (Remaining 2/3) */}
 						<div className="flex-1 relative z-10 bg-black/50">
-							<RevealSlide
-								onBack={back} /* Hidden in split view anyway */
-								isDesktopSplit={true}
-							/>
+							<Suspense fallback={<LoadingSpinner />}>
+								<RevealSlide
+									onBack={back} /* Hidden in split view anyway */
+									isDesktopSplit={true}
+								/>
+							</Suspense>
 						</div>
 					</div>
 				</>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { calculateMultiStockComparison, calculateIndividualComparison, type SimulationResult, type SpendItem } from '../lib/financials';
-import type { StockDataPoint } from '../lib/financials';
+import { type SimulationResult, type SpendItem } from '../lib/financials';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Share2, Download, Twitter, Facebook, Linkedin } from 'lucide-react';
@@ -9,6 +8,8 @@ import { useCountUp } from '../lib/useCountUp';
 import CurrencyRain from './CurrencyRain';
 import { CurrencySwitcher } from './CurrencySwitcher';
 import { ShareCard } from './ShareCard';
+import { formatCurrency } from '../lib/currency';
+import { simulateBasket } from '../lib/api';
 import html2canvas from 'html2canvas';
 
 interface Props {
@@ -21,231 +22,250 @@ const TooltipWrapper = ({ count, names }: { count: number; names: string[] }) =>
 
 	return (
 		<span
-			className="relative inline-block cursor-help z-50"
+			className="inline-flex items-center gap-1 cursor-help group relative"
 			onMouseEnter={() => setIsOpen(true)}
 			onMouseLeave={() => setIsOpen(false)}
-			onClick={(e) => {
-				e.stopPropagation();
-				setIsOpen(!isOpen);
-			}}
+			onClick={() => setIsOpen(!isOpen)}
 		>
-			<span className="underline decoration-dotted underline-offset-4">
+			<span className="text-brand-neon underline decoration-brand-neon/30 decoration-2 underline-offset-4 hover:decoration-brand-neon/100 transition-all">
 				{count} others
 			</span>
-			{/* Dropdown */}
 			<AnimatePresence>
 				{isOpen && (
-					<motion.span
-						initial={{ opacity: 0, y: 5 }}
-						animate={{ opacity: 1, y: 0 }}
-						exit={{ opacity: 0, y: 5 }}
-						transition={{ duration: 0.2 }}
-						className="absolute left-0 top-full mt-2 bg-black/95 border border-white/20 rounded-lg p-3 min-w-48 shadow-xl z-50"
+					<motion.div
+						initial={{ opacity: 0, scale: 0.95, y: -10 }}
+						animate={{ opacity: 1, scale: 1, y: 0 }}
+						exit={{ opacity: 0, scale: 0.95, y: -10 }}
+						className="absolute top-full left-1/2 -translate-x-1/2 mt-4 p-4 glass-panel rounded-2xl border border-white/10 shadow-2xl z-50 min-w-[240px]"
 					>
-						<span className="text-xs text-gray-400 block mb-2">Also includes:</span>
-						{names.map((name, idx) => (
-							<span key={idx} className="block text-sm text-white py-0.5">
-								{name}
-							</span>
-						))}
-					</motion.span>
+						<div className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-3 border-b border-white/5 pb-2">Full Basket</div>
+						<div className="flex flex-col gap-2.5">
+							{names.map((n, i) => (
+								<div key={i} className="flex items-center gap-2">
+									<div className="w-1.5 h-1.5 rounded-full bg-brand-neon/50" />
+									<span className="text-sm text-gray-200 font-medium">{n}</span>
+								</div>
+							))}
+						</div>
+						<div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-brand-dark border-l border-t border-white/10 rotate-45" />
+					</motion.div>
 				)}
 			</AnimatePresence>
 		</span>
 	);
 };
 
-const ItemChart = ({ item, result }: { item: SpendItem; result: SimulationResult }) => {
-	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result!.currency });
+const ItemChart = ({ item, result }: { item: SpendItem, result: SimulationResult }) => {
+	const stocksWon = result.investmentValue > result.totalSpent;
+	const color = stocksWon ? '#00f4a2' : '#ef4444';
 
 	return (
-		<motion.div
-			initial={{ opacity: 0 }}
-			animate={{ opacity: 1 }}
-			transition={{ duration: 0.8, ease: "easeInOut" }}
-			className="h-[300px]"
-		>
-			<div className="glass-panel p-4 rounded-2xl h-full flex flex-col">
-				<h3 className="text-sm font-semibold text-gray-300 mb-2 truncate">{item.name} ({item.ticker})</h3>
-				<div className="flex-1 min-h-0">
-					<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-						<AreaChart data={result.graphData}>
-							<defs>
-								<linearGradient id={`color-${item.id}-value`} x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#00f4a2" stopOpacity={0.3} />
-									<stop offset="95%" stopColor="#00f4a2" stopOpacity={0} />
-								</linearGradient>
-								<linearGradient id={`color-${item.id}-spent`} x1="0" y1="0" x2="0" y2="1">
-									<stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-									<stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-								</linearGradient>
-							</defs>
-							<CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-							<XAxis
-								dataKey="date"
-								tick={{ fill: '#888', fontSize: 10 }}
-								tickLine={false}
-								axisLine={{ stroke: '#333' }}
-							/>
-							<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={70} />
-							<Tooltip
-								contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
-								formatter={(value: number | string | undefined) =>
-									typeof value === 'number' ? formatter.format(value) : ''}
-								labelStyle={{ color: '#888' }}
-							/>
-							<Area
-								type="monotone"
-								dataKey="value"
-								stroke="#00f4a2"
-								strokeWidth={2}
-								fillOpacity={1}
-								fill={`url(#color-${item.id}-value)`}
-							/>
-							<Area
-								type="monotone"
-								dataKey="spent"
-								stroke="#ef4444"
-								strokeWidth={2}
-								strokeDasharray="5 5"
-								fillOpacity={1}
-								fill={`url(#color-${item.id}-spent)`}
-							/>
-						</AreaChart>
-					</ResponsiveContainer>
+		<div className="glass-panel p-5 rounded-3xl border border-white/5 h-full flex flex-col group hover:border-white/10 transition-all duration-500">
+			<div className="flex justify-between items-start mb-6">
+				<div>
+					<h4 className="text-white font-bold text-lg group-hover:text-brand-neon transition-colors">{item.name}</h4>
+					<p className="text-xs text-gray-500 uppercase tracking-widest font-medium mt-1">invested in {item.ticker}</p>
+				</div>
+				<div className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${result.growthPercentage >= 0 ? 'bg-brand-neon/10 text-brand-neon' : 'bg-red-500/10 text-red-400'}`}>
+					{result.growthPercentage > 0 ? '+' : ''}{result.growthPercentage.toFixed(0)}%
 				</div>
 			</div>
-		</motion.div>
+
+			<div className="h-28 w-full mb-6">
+				<ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+					<AreaChart data={result.graphData}>
+						<defs>
+							<linearGradient id={`colorValue-${item.id}`} x1="0" y1="0" x2="0" y2="1">
+								<stop offset="5%" stopColor={color} stopOpacity={0.2} />
+								<stop offset="95%" stopColor={color} stopOpacity={0} />
+							</linearGradient>
+							<linearGradient id={`colorSpent-${item.id}`} x1="0" y1="0" x2="0" y2="1">
+								<stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />
+								<stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+							</linearGradient>
+						</defs>
+						<XAxis
+							dataKey="date"
+							tick={{ fill: '#666', fontSize: 8 }}
+							tickLine={false}
+							axisLine={{ stroke: '#333' }}
+						/>
+						<YAxis
+							tick={{ fill: '#666', fontSize: 8 }}
+							tickLine={false}
+							axisLine={{ stroke: '#333' }}
+							tickFormatter={(v) => formatCurrency(v, result.currency)}
+							width={40}
+						/>
+						<Tooltip
+							contentStyle={{ backgroundColor: '#000', border: '1px solid #333', fontSize: '10px' }}
+							formatter={(value: number | string | undefined) =>
+								typeof value === 'number' ? formatCurrency(value, result.currency) : ''}
+						/>
+						<Area
+							type="monotone"
+							dataKey="spent"
+							stroke="#ef4444"
+							strokeWidth={1.5}
+							strokeDasharray="4 4"
+							fillOpacity={1}
+							fill={`url(#colorSpent-${item.id})`}
+							isAnimationActive={true}
+						/>
+						<Area
+							type="monotone"
+							dataKey="value"
+							stroke={color}
+							strokeWidth={2.5}
+							fillOpacity={1}
+							fill={`url(#colorValue-${item.id})`}
+							isAnimationActive={true}
+						/>
+					</AreaChart>
+				</ResponsiveContainer>
+			</div>
+
+			<div className="grid grid-cols-2 gap-4 mt-auto border-t border-white/5 pt-5">
+				<div>
+					<div className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1">Spent</div>
+					<div className="text-lg font-black text-red-400">{formatCurrency(result.totalSpent, result.currency)}</div>
+				</div>
+				<div className="text-right">
+					<div className="text-[11px] text-gray-500 font-bold uppercase tracking-wider mb-1">Value</div>
+					<div className={`text-lg font-black ${stocksWon ? 'text-brand-neon' : 'text-red-400'}`}>{formatCurrency(result.investmentValue, result.currency)}</div>
+				</div>
+			</div>
+		</div>
 	);
 };
 
 export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	const { basket, currency } = useStore();
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState('');
 	const [result, setResult] = useState<SimulationResult | null>(null);
 	const [itemResults, setItemResults] = useState<Record<string, SimulationResult>>({});
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState('');
-	const animatedGrowth = useCountUp(result?.growthPercentage ?? 0, 2000);
-	const animatedSpent = useCountUp(result?.totalSpent ?? 0, 2000);
-	const animatedInvestment = useCountUp(result?.investmentValue ?? 0, 2000);
-	const tickers = [...new Set(basket.map((item) => item.ticker))];
-	const tickersLabel = tickers.join(' + ');
 
-	// Format item names for the verdict text
-	// Returns parts for rendering: prefix items + optionally "X others" with hover list
+	// Animation numbers
+	const animatedSpent = useCountUp(result?.totalSpent || 0, 2000);
+	const animatedInvestment = useCountUp(result?.investmentValue || 0, 2000);
+	const animatedGrowth = useCountUp(result?.growthPercentage || 0, 2000);
+
+	const tickers = [...new Set(basket.map(item => item.ticker))];
+	const tickersLabel = tickers.join(', ');
+
 	const getItemNamesParts = () => {
-		const names = basket.map(item => item.name);
-		if (names.length === 0) return { prefix: '', hasOthers: false, othersCount: 0, otherNames: [] };
-		if (names.length === 1) return { prefix: names[0], hasOthers: false, othersCount: 0, otherNames: [] };
-		if (names.length === 2) return { prefix: `${names[0]} & ${names[1]}`, hasOthers: false, othersCount: 0, otherNames: [] };
-		if (names.length === 3) return { prefix: `${names[0]}, ${names[1]} & ${names[2]}`, hasOthers: false, othersCount: 0, otherNames: [] };
-		// More than 3 items: show first 2 and "X others" with dropdown
-		const othersCount = names.length - 2;
-		const otherNames = names.slice(2);
+		const n = basket.length;
+		if (n === 0) return { prefix: '', hasOthers: false, othersCount: 0, otherNames: [] };
+		if (n === 1) return { prefix: basket[0].name, hasOthers: false, othersCount: 0, otherNames: [] };
+		if (n === 2) return { prefix: `${basket[0].name} and ${basket[1].name}`, hasOthers: false, othersCount: 0, otherNames: [] };
+		if (n === 3) return { prefix: `${basket[0].name}, ${basket[1].name} and ${basket[2].name}`, hasOthers: false, othersCount: 0, otherNames: [] };
+
 		return {
-			prefix: `${names[0]}, ${names[1]} & `,
+			prefix: `${basket[0].name}, ${basket[1].name} and `,
 			hasOthers: true,
-			othersCount,
-			otherNames
+			othersCount: n - 2,
+			otherNames: basket.map(b => b.name)
 		};
 	};
+
 	const itemNamesParts = getItemNamesParts();
 
 	const getItemNamesString = () => {
-		const names = basket.map(item => item.name);
-		if (names.length === 0) return '';
-		if (names.length === 1) return names[0];
-		if (names.length === 2) return `${names[0]} & ${names[1]}`;
-		if (names.length === 3) return `${names[0]}, ${names[1]} & ${names[2]}`;
-		return `${names[0]}, ${names[1]} & ${names.length - 2} others`;
+		const n = basket.length;
+		if (n === 0) return '';
+		if (n === 1) return basket[0].name;
+		if (n === 2) return `${basket[0].name} and ${basket[1].name}`;
+		if (n === 3) return `${basket[0].name}, ${basket[1].name} and ${basket[2].name}`;
+		return `${basket[0].name}, ${basket[1].name} and ${n - 2} others`;
 	};
 
-	const handleShare = async (platform?: 'twitter' | 'linkedin' | 'facebook' | 'whatsapp' | 'reddit' | 'download') => {
-		const card = document.getElementById('share-card');
-		if (!card) {
-			console.error('Share card element not found via ID');
-			return;
-		}
+	const [isSharing, setIsSharing] = useState(false);
+	const spentColorClass = 'text-red-400';
+	const investmentColorClass = 'text-brand-neon';
 
-		console.log('Starting share capture...', { platform, cardWidth: card.offsetWidth, cardHeight: card.offsetHeight });
+	const getShareFilename = () => {
+		const now = new Date();
+		const yy = String(now.getFullYear()).slice(-2);
+		const mm = String(now.getMonth() + 1).padStart(2, '0');
+		const dd = String(now.getDate()).padStart(2, '0');
+		const hh = String(now.getHours()).padStart(2, '0');
+		const min = String(now.getMinutes()).padStart(2, '0');
+		return `svs.imanhussain.com_${yy}${mm}${dd}_${hh}${min}.png`;
+	};
+
+	const handleShare = async (platform?: string) => {
+		if (isSharing) return;
+		setIsSharing(true);
 
 		try {
-			const canvas = await html2canvas(card, {
-				scale: 2,
-				backgroundColor: '#000000',
-				useCORS: true,
-				logging: true,
-				scrollX: 0,
-				scrollY: 0,
-			});
+			const shareUrl = window.location.href;
+			const shareText = `I spent ${formatCurrency(result!.totalSpent, result!.currency)} on ${getItemNamesString()}. If I'd invested that in ${tickersLabel} instead, I'd have ${formatCurrency(result!.investmentValue, result!.currency)} today! 💸💎\n\nCheck yours at ${shareUrl} #StocksVsSubscription #Investing`;
 
-			console.log('Canvas captured successfully');
+			// 1. Always generate the image if it's a social share OR binary download
+			const card = document.getElementById('share-card-container');
+			console.log('[Share] Card element found:', !!card);
+			let blob: Blob | null = null;
+			if (card) {
+				const canvas = await html2canvas(card, {
+					backgroundColor: '#000',
+					scale: 2,
+					logging: false,
+					useCORS: true,
+					allowTaint: true
+				});
+				blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+				console.log('[Share] Blob generated:', !!blob, blob?.size);
+			}
 
-			const image = canvas.toDataURL('image/png');
-			const blob = await (await fetch(image)).blob();
-			const file = new File([blob], 'verdict.png', { type: 'image/png' });
-
-			console.log('Image blob created', blob.size);
-
-			const shareUrl = "https://svs.imanhussain.com";
-			const itemNames = getItemNamesString();
-			const shareText = `I spent ${formatter.format(result!.totalSpent)} on ${itemNames}. If I invested it, I'd have ${formatter.format(result!.investmentValue)}! Check your stack:`;
-
-			// 1. Native Web Share API (Mobile & Supported Desktop)
-			if (!platform && typeof navigator !== 'undefined' && 'share' in navigator && (navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
-				try {
-					console.log('Triggering native share');
-					await navigator.share({
+			// 2. Platform-specific logic
+			if (!platform) {
+				// Native Web Share API (Primary for Mobile)
+				if (navigator.share) {
+					const shareData: ShareData = {
 						title: 'Stocks vs Subscription',
 						text: shareText,
 						url: shareUrl,
-						files: [file]
-					});
-					return;
-				} catch (err) {
-					console.warn('Native share failed or cancelled, falling back to clipboard', err);
-					// Fall through to clipboard logic
+					};
+
+					// Attempt to include the file if supported
+					const filename = getShareFilename();
+					if (blob && navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'image/png' })] })) {
+						shareData.files = [new File([blob], filename, { type: 'image/png' })];
+					}
+
+					await navigator.share(shareData);
+				} else {
+					// Fallback for Desktop: Copy text + Download image
+					await navigator.clipboard.writeText(shareText);
+					if (blob) {
+						const url = URL.createObjectURL(blob);
+						const a = document.createElement('a');
+						a.href = url;
+						a.download = getShareFilename();
+						a.click();
+						URL.revokeObjectURL(url);
+					}
+					alert('Share text copied to clipboard! Image downloaded.');
 				}
-			}
-
-			// 2. Fallback / Desktop Logic: Copy Image to Clipboard
-			const copyImageToClipboard = async () => {
-				try {
-					await navigator.clipboard.write([
-						new ClipboardItem({ [blob.type]: blob })
-					]);
-					alert("Image copied to clipboard! \n\nPaste it (Ctrl+V) into your social post to attach it.");
-				} catch (err) {
-					console.error('Clipboard write failed', err);
-					alert("Could not automatically copy image. Download starting instead.");
-					downloadImage(); // Ultimate fallback
+			} else if (platform === 'download') {
+				if (blob) {
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = getShareFilename();
+					a.click();
+					URL.revokeObjectURL(url);
 				}
-			};
-
-			const downloadImage = () => {
-				const link = document.createElement('a');
-				link.download = 'stocks-vs-subscription-verdict.png';
-				link.href = image;
-				document.body.appendChild(link);
-				link.click();
-				document.body.removeChild(link);
-			};
-
-			if (platform === 'download') {
-				console.log('Triggering download');
-				downloadImage();
-				return;
-			}
-
-			// Socials - For desktop, we copy image to clipboard so user can paste it
-			if (platform) {
-				console.log('Triggering clipboard copy + social intent');
-				await copyImageToClipboard();
-
+			} else {
+				// Social Intent Logic
 				let intentUrl = '';
 				switch (platform) {
 					case 'twitter':
-						intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+						intentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`;
+						break;
+					case 'whatsapp':
+						intentUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 						break;
 					case 'linkedin':
 						intentUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`; // LinkedIn summary/title params are often ignored, but URL works
@@ -253,33 +273,24 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 					case 'facebook':
 						intentUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}`;
 						break;
+					case 'reddit':
+						intentUrl = `https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(shareText)}`;
+						break;
+					default:
+						break;
 				}
 				if (intentUrl) {
-					console.log('Opening social intent:', intentUrl);
-					// Small delay to ensure download starts first
-					setTimeout(() => window.open(intentUrl, '_blank'), 100);
+					window.open(intentUrl, '_blank');
 				}
 			}
-
-		} catch (err) {
-			console.error('Share failed', err);
+		} catch (err: any) {
+			if (err.name !== 'AbortError' && err.name !== 'InvalidStateError') {
+				console.error('Share failed', err);
+			}
+		} finally {
+			setIsSharing(false);
 		}
 	};
-
-	// Dynamic grammar helpers for verdict text
-	const tickerCount = tickers.length;
-
-	// Singular/plural for stock(s)
-	const stockWord = tickerCount === 1 ? tickers[0] : 'these stocks';
-
-	// "that" always refers to the "total amount of money" (singular)
-	const thatWord = 'that';
-
-	// Conditional coloring: did stocks outperform spending?
-	const stocksWon = (result?.investmentValue ?? 0) > (result?.totalSpent ?? 0);
-	// Colors flip based on outcome
-	const spentColorClass = stocksWon ? 'text-red-400' : 'text-brand-neon';
-	const investmentColorClass = stocksWon ? 'text-brand-neon' : 'text-red-400';
 
 	useEffect(() => {
 		const fetchAndCalculate = async () => {
@@ -287,122 +298,11 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			setError('');
 
 			try {
-				const uniqueTickers = [...new Set(basket.map(item => item.ticker))];
-				const userBaseCurrency = currency || 'GBP';
-
-				// Identify required currency pairs (e.g. GBPUSD=X if user is GBP and item is USD)
-				const requiredPairs = [...new Set(
-					basket
-						.filter(item => item.currency !== userBaseCurrency)
-						.map(item => `${userBaseCurrency}${item.currency}=X`)
-				)];
-
-				// Calculate the earliest start date from the basket
-				const earliestDate = basket.reduce((min, item) => {
-					return item.startDate < min ? item.startDate : min;
-				}, new Date().toISOString().split('T')[0]);
-
-				const apiUrl = import.meta.env.VITE_API_URL || '';
-
-				// Fetch stock data
-				const stockDataPromises = uniqueTickers.map(async (ticker) => {
-					const res = await fetch(`${apiUrl}/api/stock?symbol=${ticker}&startDate=${earliestDate}`);
-					const data = await res.json();
-					if (data.error) throw new Error(`Failed to fetch ${ticker}: ${data.error}`);
-
-					// IMPORTANT: We no longer convert history here using static convertBetween!
-					// We use the raw prices and let the simulation handle historical conversion
-					// the simulation logic handles the item cost.
-					// However, we still might need to know the native currency of the stock if we were
-					// converting its price to userBaseCurrency.
-					// The user's prompt says: "The simulation graph reflects historical exchange rate fluctuations"
-					// This implies we should convert the stock price day-by-day too.
-
-					const stockCurrency: string = data.currency || 'USD';
-
-					return { ticker, history: data.history || [], nativeCurrency: stockCurrency };
-				});
-
-				// Fetch currency data
-				const currencyPairsExtra = new Set<string>();
-				// We also need to convert stock prices if they're not in userBaseCurrency
-				// So we need pairs for stockNativeCurrency -> userBaseCurrency
-				// The prompt says: "Fetch the relevant currency ticker (e.g. GBPUSD=X if User is GBP and Item is USD)"
-				// Wait, Yahoo Finance rates are often BASEQUOTE=X.
-				// If user is GBP and item is USD, GBPUSD=X tells us how many USD per GBP.
-				// My financials.ts logic: costInUserCurrency = item.cost / rate(User->Item)
-				// So if item.cost is $10 USD and rate(GBPUSD=X) is 1.25, then cost = 10 / 1.25 = £8. Correct.
-
-				const stockDataArray = await Promise.all(stockDataPromises);
-
-				for (const item of stockDataArray) {
-					if (item.nativeCurrency !== userBaseCurrency) {
-						currencyPairsExtra.add(`${userBaseCurrency}${item.nativeCurrency}=X`);
-					}
-				}
-
-				const allPairs = [...new Set([...requiredPairs, ...Array.from(currencyPairsExtra)])];
-				const currencyDataPromises = allPairs.map(async (pair) => {
-					const res = await fetch(`${apiUrl}/api/stock?symbol=${pair}&startDate=${earliestDate}`);
-					const data = await res.json();
-					return { pair, history: data.history || [] };
-				});
-
-				const currencyDataArray = await Promise.all(currencyDataPromises);
-				const currencyDataMap: Record<string, StockDataPoint[]> = {};
-				for (const { pair, history } of currencyDataArray) {
-					currencyDataMap[pair] = history;
-				}
-
-				const stockDataMap: Record<string, StockDataPoint[]> = {};
-				for (const { ticker, history, nativeCurrency } of stockDataArray) {
-					// Convert stock history prices to userBaseCurrency using historical rates
-					if (nativeCurrency === userBaseCurrency) {
-						stockDataMap[ticker] = history;
-					} else {
-						const pair = `${userBaseCurrency}${nativeCurrency}=X`;
-						const rates = currencyDataMap[pair] || [];
-						// Day-by-day conversion for the stock price history itself
-						// This ensures the stock value on the graph is in User Currency
-						// We can do this here or inside financials.ts.
-						// financials.ts calculateMultiStockComparison currently assumes prices in stockDataMap are "ready".
-						// So let's convert them here.
-
-						const rateIndices: Record<string, number> = { [pair]: 0 };
-						stockDataMap[ticker] = history.map((p: any) => {
-							const dateStr = p.date;
-							const rateHistory = rates;
-							while (rateIndices[pair] < rateHistory.length - 1 && rateHistory[rateIndices[pair] + 1].date <= dateStr) {
-								rateIndices[pair]++;
-							}
-							const rate = rateHistory.length > 0 && rateHistory[rateIndices[pair]].date <= dateStr
-								? rateHistory[rateIndices[pair]].adjClose
-								: 1;
-							return {
-								date: p.date,
-								adjClose: rate > 0 ? p.adjClose / rate : p.adjClose
-							};
-						});
-					}
-				}
-
-				const computation = calculateMultiStockComparison(basket, stockDataMap, userBaseCurrency, currencyDataMap);
-				setResult(computation);
-
-				const itemComputations: Record<string, SimulationResult> = {};
-				for (const item of basket) {
-					const pair = `${userBaseCurrency}${item.currency}=X`;
-					const itemComputation = calculateIndividualComparison(
-						item,
-						stockDataMap[item.ticker] || [],
-						userBaseCurrency,
-						currencyDataMap[pair] || []
-					);
-					itemComputations[item.id] = itemComputation;
-				}
-				setItemResults(itemComputations);
+				const { result, itemResults } = await simulateBasket(basket, currency || 'GBP');
+				setResult(result);
+				setItemResults(itemResults);
 			} catch (err: unknown) {
-				setError(err instanceof Error ? err.message : 'Failed to fetch stock data');
+				setError(err instanceof Error ? err.message : 'Simulation failed');
 			} finally {
 				setLoading(false);
 			}
@@ -410,10 +310,13 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 
 		if (basket.length > 0) {
 			fetchAndCalculate();
+		} else {
+			setResult(null);
+			setItemResults({});
+			setLoading(false);
 		}
 	}, [basket, currency]);
 
-	// Only show full loading screen if we have no result yet (initial load)
 	if (loading && !result) {
 		return (
 			<motion.div
@@ -422,18 +325,41 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 				exit={{ opacity: 0 }}
 				className={`${isDesktopSplit ? 'h-full' : 'h-dvh'} flex flex-col items-center justify-center gap-4 relative overflow-hidden`}
 			>
-				{/* FIX: Explicit z-0 and pointer-events-none on the WRAPPER */}
 				<div className="absolute inset-0 z-0 pointer-events-none">
 					<CurrencyRain density={40} />
 				</div>
-				{/* Kept the spinner here as it is necessary for loading context,
-				    but it will disappear completely before results are shown. */}
 				<motion.div
 					animate={{ rotate: 360 }}
 					transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
 					className="w-12 h-12 border-4 border-brand-neon border-t-transparent rounded-full z-10"
 				/>
 				<p className="text-brand-neon font-semibold z-10">Crunching Numbers...</p>
+			</motion.div>
+		);
+	}
+
+	// Empty State (No items in basket)
+	if (!loading && !result) {
+		return (
+			<motion.div
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				className={`${isDesktopSplit ? 'h-full' : 'h-dvh'} flex flex-col items-center justify-center p-8 text-center gap-6`}
+			>
+				<div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-2">
+					<div className="w-12 h-12 rounded-full border-2 border-dashed border-white/20 animate-[spin_10s_linear_infinite]" />
+				</div>
+				<div className="max-w-md">
+					<h3 className="text-xl font-bold text-white mb-2">Potential Unlocked</h3>
+					<p className="text-gray-500 text-sm leading-relaxed">
+						Add subscriptions, habits, or products to build your stack and see how much your spending could have grown in the market.
+					</p>
+				</div>
+				{!isDesktopSplit && (
+					<button onClick={onBack} className="text-gray-400 hover:text-white flex items-center gap-2 mt-4 text-xs font-bold uppercase tracking-widest transition-colors font-black">
+						<ChevronLeft size={16} className="text-brand-neon" /> Build Stack
+					</button>
+				)}
 			</motion.div>
 		);
 	}
@@ -452,20 +378,6 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			</motion.div>
 		);
 	}
-
-	// Smart currency formatter: show decimals if not .00, hide if .00
-	const formatCurrency = (value: number) => {
-		const hasDecimals = value % 1 !== 0;
-		const smartFormatter = new Intl.NumberFormat('en-GB', {
-			style: 'currency',
-			currency: result!.currency,
-			minimumFractionDigits: hasDecimals ? 2 : 0,
-			maximumFractionDigits: hasDecimals ? 2 : 0
-		});
-		return smartFormatter.format(value);
-	};
-
-	const formatter = new Intl.NumberFormat('en-GB', { style: 'currency', currency: result!.currency });
 
 	return (
 		<motion.div
@@ -519,7 +431,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 							transition={{ duration: 0.6, delay: 0.5, ease: "easeOut" }}
 							className={`${spentColorClass} inline`}
 						>
-							{formatCurrency(animatedSpent)}
+							{formatCurrency(animatedSpent, result!.currency)}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
@@ -550,7 +462,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 							transition={{ duration: 0.6, delay: 0.9, ease: "easeOut" }}
 							className="inline mt-1"
 						>
-							If you'd invested {thatWord} in {stockWord} instead, you'd have{' '}
+							That money, invested, would now be{' '}
 						</motion.span>
 						<motion.span
 							initial={{ opacity: 0, y: 15 }}
@@ -559,7 +471,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 							className={`${investmentColorClass} inline`}
 							style={{ whiteSpace: 'nowrap' }}
 						>
-							{formatCurrency(animatedInvestment)}.
+							{formatCurrency(animatedInvestment, result!.currency)}.
 						</motion.span>
 					</h1>
 				</div>
@@ -617,11 +529,11 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 									tickLine={false}
 									axisLine={{ stroke: '#333' }}
 								/>
-								<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatter.format(v)} width={80} />
+								<YAxis tick={{ fill: '#888', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#333' }} tickFormatter={(v) => formatCurrency(v, result!.currency)} width={80} />
 								<Tooltip
 									contentStyle={{ backgroundColor: '#000', border: '1px solid #333' }}
 									formatter={(value: number | string | undefined) =>
-										typeof value === 'number' ? formatter.format(value) : ''}
+										typeof value === 'number' ? formatCurrency(value, result!.currency) : ''}
 									labelStyle={{ color: '#888' }}
 								/>
 								<Area
@@ -661,15 +573,23 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 					{/* Primary Share Button (Native API) */}
 					<button
 						onClick={() => handleShare()}
-						className="bg-brand-neon hover:bg-white text-brand-dark px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors min-w-[200px] justify-center"
+						disabled={isSharing}
+						className="bg-brand-neon hover:bg-white disabled:opacity-70 disabled:cursor-wait text-brand-dark px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors min-w-[200px] justify-center"
 					>
-						<Share2 size={18} /> Share Verdict
+						{isSharing ? (
+							<>Processing...</>
+						) : (
+							<>
+								<Share2 size={18} /> Share Verdict
+							</>
+						)}
 					</button>
 
 					{/* Download Button (Direct) */}
 					<button
 						onClick={() => handleShare('download')}
-						className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors justify-center"
+						disabled={isSharing}
+						className="bg-white/10 hover:bg-white/20 disabled:opacity-50 disabled:cursor-wait text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors justify-center"
 					>
 						<Download size={18} /> Download
 					</button>
@@ -678,28 +598,32 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 					<div className="hidden md:flex gap-2">
 						<button
 							onClick={() => handleShare('twitter')}
-							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							disabled={isSharing}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-wait text-gray-400 hover:text-white border border-white/10 transition-all"
 							title="Share on X"
 						>
 							<Twitter size={20} />
 						</button>
 						<button
 							onClick={() => handleShare('linkedin')}
-							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							disabled={isSharing}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-wait text-gray-400 hover:text-white border border-white/10 transition-all"
 							title="Share on LinkedIn"
 						>
 							<Linkedin size={20} />
 						</button>
 						<button
 							onClick={() => handleShare('facebook')}
-							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							disabled={isSharing}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-wait text-gray-400 hover:text-white border border-white/10 transition-all"
 							title="Share on Facebook"
 						>
 							<Facebook size={20} />
 						</button>
 						<button
 							onClick={() => handleShare('reddit')}
-							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							disabled={isSharing}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-wait text-gray-400 hover:text-white border border-white/10 transition-all"
 							title="Share on Reddit"
 						>
 							<svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
@@ -708,7 +632,8 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 						</button>
 						<button
 							onClick={() => handleShare('whatsapp')}
-							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 transition-all"
+							disabled={isSharing}
+							className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-wait text-gray-400 hover:text-white border border-white/10 transition-all"
 							title="Share on WhatsApp"
 						>
 							<svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
@@ -750,15 +675,15 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 
 
 			{/* Hidden Share Card for Screenshot Generation */}
-			<div className="fixed top-0 left-[200vw] pointer-events-none">
+			<div id="share-card-container" className="fixed top-0 left-[200vw] pointer-events-none w-[1080px] h-[1080px]">
 				{result && (
 					<ShareCard
 						result={result}
 						itemNames={getItemNamesString()}
 						spent={result.totalSpent}
 						investmentValue={result.investmentValue}
-						formattedSpent={formatter.format(result.totalSpent)}
-						formattedInvestment={formatter.format(result.investmentValue)}
+						formattedSpent={formatCurrency(result.totalSpent, result.currency)}
+						formattedInvestment={formatCurrency(result.investmentValue, result.currency)}
 						tickers={tickers}
 					/>
 				)}

@@ -1,9 +1,12 @@
+/**
+ * Ported from frontend/src/lib/financials.ts
+ * Handled by the backend for Two-Layer Caching strategy.
+ */
+
 export interface StockDataPoint {
 	date: string; // YYYY-MM-DD
 	adjClose: number;
 }
-
-import { getExchangeTicker } from './currency-logic';
 
 export type SpendFrequency = 'one-off' | 'daily' | 'workdays' | 'weekly' | 'monthly' | 'yearly';
 
@@ -29,8 +32,19 @@ export interface SimulationResult {
 	}>;
 }
 
-// Helper to reduce graph points for rendering performance
-function downsample(data: any[], targetCount: number = 500) {
+/**
+ * Re-implementation of getExchangeTicker for backend.
+ * Pattern: BASEQUOTE=X (e.g. GBPUSD=X)
+ */
+export function getExchangeTicker(base: string, target: string): string | null {
+	if (base === target) return null;
+	return `${base}${target}=X`.toUpperCase();
+}
+
+/**
+ * Helper to reduce graph points for rendering performance
+ */
+export function downsample(data: any[], targetCount: number = 500) {
 	if (data.length <= targetCount) return data;
 	const step = Math.ceil(data.length / targetCount);
 	return data.filter((_, i) => i % step === 0 || i === data.length - 1);
@@ -78,95 +92,6 @@ function isPaymentDay(item: SpendItem, currentDate: Date, dateStr: string): bool
 		default:
 			return false;
 	}
-}
-
-export function calculateComparison(
-	items: SpendItem[],
-	stockHistory: StockDataPoint[],
-	userCurrency: string,
-	currencyDataMap: Record<string, StockDataPoint[]> = {}
-): SimulationResult {
-	if (!items.length || !stockHistory.length) {
-		return { totalSpent: 0, investmentValue: 0, currency: userCurrency, growthPercentage: 0, graphData: [] };
-	}
-
-	stockHistory.sort((a, b) => a.date.localeCompare(b.date));
-
-	const earliestSpendDate = items.reduce((min, item) => item.startDate < min ? item.startDate : min, items[0].startDate);
-	const lastDate = stockHistory[stockHistory.length - 1].date;
-	const startDate = earliestSpendDate;
-
-	let totalSpent = 0;
-	let sharesOwned = 0;
-	let cashHeld = 0;
-	const graphData: Array<{ date: string; spent: number; value: number }> = [];
-
-	const startParam = new Date(startDate);
-	const endParam = new Date(lastDate);
-	const oneDay = 24 * 60 * 60 * 1000;
-
-	let historyIndex = 0;
-	const currencyIndices: Record<string, number> = {};
-	const currentRates: Record<string, number> = {};
-	for (const pair of Object.keys(currencyDataMap)) {
-		currencyIndices[pair] = 0;
-		currentRates[pair] = 1;
-	}
-
-	for (let d = startParam.getTime(); d <= endParam.getTime(); d += oneDay) {
-		const currentDate = new Date(d);
-		const dateStr = currentDate.toISOString().split('T')[0];
-
-		while (historyIndex < stockHistory.length - 1 && stockHistory[historyIndex + 1].date <= dateStr) {
-			historyIndex++;
-		}
-		const currentPrice = stockHistory[historyIndex].date <= dateStr ? stockHistory[historyIndex].adjClose : 0;
-
-		for (const pair of Object.keys(currencyDataMap)) {
-			const history = currencyDataMap[pair];
-			while (currencyIndices[pair] < history.length - 1 && history[currencyIndices[pair] + 1].date <= dateStr) {
-				currencyIndices[pair]++;
-			}
-			if (history[currencyIndices[pair]].date <= dateStr) {
-				currentRates[pair] = history[currencyIndices[pair]].adjClose;
-			}
-		}
-
-		for (const item of items) {
-			if (isPaymentDay(item, currentDate, dateStr)) {
-				let costInUserCurrency = item.cost;
-				if (item.currency !== userCurrency) {
-					const pair = getExchangeTicker(userCurrency, item.currency);
-					const rate = pair ? currentRates[pair] : 1;
-					if (rate && rate > 0) {
-						costInUserCurrency = item.cost / rate;
-					}
-				}
-
-				totalSpent += costInUserCurrency;
-				if (currentPrice > 0) {
-					if (cashHeld > 0) {
-						sharesOwned += cashHeld / currentPrice;
-						cashHeld = 0;
-					}
-					sharesOwned += costInUserCurrency / currentPrice;
-				} else {
-					cashHeld += costInUserCurrency;
-				}
-			}
-		}
-
-		let currentValue = cashHeld + (currentPrice > 0 ? sharesOwned * currentPrice : 0);
-		graphData.push({ date: dateStr, spent: totalSpent, value: currentValue });
-	}
-
-	return {
-		totalSpent,
-		investmentValue: graphData[graphData.length - 1]?.value || 0,
-		currency: userCurrency,
-		growthPercentage: totalSpent > 0 ? ((graphData[graphData.length - 1].value - totalSpent) / totalSpent) * 100 : 0,
-		graphData: downsample(graphData)
-	};
 }
 
 export function calculateMultiStockComparison(

@@ -25,16 +25,26 @@ FROM nginx:alpine AS runner
 # Install curl for healthcheck
 RUN apk add --no-cache curl
 
-# Copy custom nginx config
+# Security: Configure Nginx to run as a non-root user
+# 1. Update permissions for Nginx-related directories
+# 2. Touch the PID file so nginx user can write to it
+RUN touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid /var/cache/nginx /var/log/nginx /etc/nginx/conf.d
+
+# Copy custom nginx config (already points to port 8080)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built assets
+# Copy built assets and ensure ownership
 COPY --from=builder /app/dist /usr/share/nginx/html
+RUN chown -R nginx:nginx /usr/share/nginx/html
 
-EXPOSE 80
+# Switch to non-root user
+USER nginx
 
-# Health check
+EXPOSE 8080
+
+# Health check (updated to 8080)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-	CMD curl -f http://localhost/ || exit 1
+	CMD curl -f http://localhost:8080/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

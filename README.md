@@ -4,7 +4,7 @@
 
 A cinematic, high-performance web application that visualizes the opportunity cost of recurring subscriptions (like Netflix, Spotify) or one-off luxury purchases (like a new iPhone) versus investing that money in the stock market.
 
-🔗 **Live Demo**: [stocksvssubscriptions.imanhussain.com](https://stocksvssubscriptions.imanhussain.com)
+🔗 **Live Demo**: [svs.imanhussain.com](https://svs.imanhussain.com)
 
 ![App Screenshot](./client/public/vite.svg) *Add a real screenshot here!*
 
@@ -42,14 +42,14 @@ A cinematic, high-performance web application that visualizes the opportunity co
 ### Prerequisites
 
 * Node.js 20+
-* Docker (optional, for production build)
+* Docker (for production deployment)
 
 ### Local Development
 
 1. **Clone the repo**
 
    ```bash
-   git clone https://github.com/iman-hussain/StocksVsSubscription.git
+   git clone https://github.com/your-username/StocksVsSubscription.git
    cd StocksVsSubscription
    ```
 
@@ -82,7 +82,7 @@ A cinematic, high-performance web application that visualizes the opportunity co
 
    * `VITE_API_URL`: Backend API URL
      * Local development: `http://localhost:3000`
-     * Production: `https://api.svs.imanhussain.com`
+     * Production: `https://api.yourdomain.com`
 
 4. **Start Dev Server**
 
@@ -106,38 +106,13 @@ Simply double-click `start_local.bat` in the root directory. This will:
 
 To stop, run `stop_local.bat` to kill servers on ports 3000/5173/5174.
 
-### Production (Docker)
-
-To run the full stack with Redis locally:
-
-```bash
-docker-compose up --build
-```
-
-Access the app at [http://localhost:3000](http://localhost:3000).
-
-To build for production deployment with a custom API URL:
-
-```bash
-# Set the API URL for the build
-export VITE_API_URL=https://api.svs.imanhussain.com  # Linux/Mac
-# or
-set VITE_API_URL=https://api.svs.imanhussain.com     # Windows CMD
-# or
-$env:VITE_API_URL="https://api.svs.imanhussain.com"  # Windows PowerShell
-
-# Build the Docker image
-docker-compose build
-```
+### Production Deployment
+Production deployment is handled via **Coolify**, which automatically builds the Dockerfiles in each service directory. See the deployment section below for more details.
 
 ## 🌐 Deployment
 
-For detailed deployment instructions, see [docs/coolify-setup.md](docs/coolify-setup.md).
-
-**Production URLs:**
-
-* **Frontend**: [svs.imanhussain.com](https://svs.imanhussain.com)
-* **Backend API**: [api.svs.imanhussain.com](https://api.svs.imanhussain.com)
+* **Frontend**: [yourdomain.com](https://yourdomain.com)
+* **Backend API**: [api.yourdomain.com](https://api.yourdomain.com)
 
 **Quick Reference - Environment Variables:**
 
@@ -146,32 +121,26 @@ For detailed deployment instructions, see [docs/coolify-setup.md](docs/coolify-s
 | Backend              | `NODE_ENV`     | `production`                        |
 | Backend              | `PORT`         | `3000`                              |
 | Backend              | `REDIS_URL`    | `redis://your-redis:6379`           |
-| Backend              | `CORS_ORIGIN`  | `https://svs.imanhussain.com`       |
-| Frontend (Build Arg) | `VITE_API_URL` | `https://api.svs.imanhussain.com`   |
+| Backend              | `CORS_ORIGIN`  | `https://yourdomain.com`            |
+| Frontend (Build Arg) | `VITE_API_URL` | `https://api.yourdomain.com`        |
 
 ## 📂 Project Structure
 
 ```text
 .
-├── frontend/               # React Frontend (Nginx + Vite)
-│   ├── Dockerfile          # Frontend Docker build
-│   ├── nginx.conf          # Nginx configuration
-│   ├── .env.example        # Frontend environment template
-│   ├── src/lib/
-│   │   ├── financials.ts   # Core investment math logic
-│   │   ├── tickerMap.ts    # Subscription & product database
-│   │   └── useCountUp.ts   # Animation hook
-│   └── src/components/     # Wizard slide components
 ├── backend/                # Hono API Server
-│   ├── Dockerfile          # Backend Docker build
-│   ├── .env.example        # Backend environment template
-│   ├── lib/cache.ts        # Redis wrapper
-│   └── index.ts            # API routes
-├── docs/                   # Documentation
-│   └── coolify-setup.md    # Deployment guide
-├── docker-compose.yml      # Local development orchestration
+│   ├── data/               # Presets (Subscriptions, Products, Habits)
+│   ├── lib/                # Shared utilities & caching logic
+│   ├── index.ts            # Main entry point & API routes
+│   └── Dockerfile          # Backend container definition
+├── frontend/               # React (Vite) Frontend
+│   ├── src/                # UI components & logic
+│   ├── nginx.conf          # Production web server config
+│   └── Dockerfile          # Frontend container definition
 ├── start_local.bat         # Windows dev launcher
-└── stop_local.bat          # Windows process killer
+├── stop_local.bat          # Windows process killer
+├── package.json            # Monorepo scripts
+└── README.md               # Documentation
 ```
 
 ## 📄 Licence
