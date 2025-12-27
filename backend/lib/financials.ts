@@ -42,12 +42,83 @@ export function getExchangeTicker(base: string, target: string): string | null {
 }
 
 /**
+ * Largest-Triangle-Three-Buckets (LTTB) Downsampling Algorithm
+ * Preserves visual peaks and troughs better than simple decimation.
+ */
+function largestTriangleThreeBuckets(data: any[], threshold: number): any[] {
+	const dataLength = data.length;
+	if (threshold >= dataLength || threshold === 0) {
+		return data;
+	}
+
+	const sampled: any[] = [];
+	let sampledIndex = 0;
+
+	// Bucket size. Leave room for start and end data points
+	const every = (dataLength - 2) / (threshold - 2);
+
+	let a = 0;
+	let maxAreaPoint: any;
+	let nextA = 0;
+
+	sampled[sampledIndex++] = data[a]; // Always add the first point
+
+	for (let i = 0; i < threshold - 2; i++) {
+		// Calculate point average for next bucket (containing c)
+		let avgX = 0;
+		let avgY = 0;
+		let avgRangeStart = Math.floor((i + 1) * every) + 1;
+		let avgRangeEnd = Math.floor((i + 2) * every) + 1;
+		avgRangeEnd = avgRangeEnd < dataLength ? avgRangeEnd : dataLength;
+
+		const avgRangeLength = avgRangeEnd - avgRangeStart;
+
+		for (; avgRangeStart < avgRangeEnd; avgRangeStart++) {
+			avgX += avgRangeStart; // Using index as X for simplicity as dates are monotonic
+			avgY += data[avgRangeStart].value;
+		}
+		avgX /= avgRangeLength;
+		avgY /= avgRangeLength;
+
+		// Get the range for this bucket
+		let rangeOffs = Math.floor((i + 0) * every) + 1;
+		const rangeTo = Math.floor((i + 1) * every) + 1;
+
+		// Point a
+		const pointAX = a; // Index as X
+		const pointAY = data[a].value;
+
+		let maxArea = -1;
+
+		for (; rangeOffs < rangeTo; rangeOffs++) {
+			// Calculate triangle area over three buckets
+			const area = Math.abs(
+				(pointAX - avgX) * (data[rangeOffs].value - pointAY) -
+				(pointAX - rangeOffs) * (avgY - pointAY)
+			) * 0.5;
+
+			if (area > maxArea) {
+				maxArea = area;
+				maxAreaPoint = data[rangeOffs];
+				nextA = rangeOffs;
+			}
+		}
+
+		sampled[sampledIndex++] = maxAreaPoint;
+		a = nextA;
+	}
+
+	sampled[sampledIndex++] = data[dataLength - 1]; // Always add the last point
+
+	return sampled;
+}
+
+/**
  * Helper to reduce graph points for rendering performance
+ * Uses LTTB for better visual preservation.
  */
 export function downsample(data: any[], targetCount: number = 500) {
-	if (data.length <= targetCount) return data;
-	const step = Math.ceil(data.length / targetCount);
-	return data.filter((_, i) => i % step === 0 || i === data.length - 1);
+	return largestTriangleThreeBuckets(data, targetCount);
 }
 
 function isPaymentDay(item: SpendItem, currentDate: Date, dateStr: string): boolean {

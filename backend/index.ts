@@ -1,12 +1,14 @@
 import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
+import { Hono, type Context, type Next } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
-import { rateLimiter } from 'hono-rate-limiter'
+import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible'
 import YahooFinance from 'yahoo-finance2'
+import { config } from './lib/config.js'
 import { cache as stockCache } from './lib/cache.js'
 import { resolveTicker } from './lib/resolve.js'
 import { SUBSCRIPTION_TICKERS, PRODUCT_DATABASE, HABIT_PRESETS } from './data/presets.js'
+import { logger } from './lib/logger.js'
 import {
 	calculateMultiStockComparison,
 	calculateIndividualComparison,
@@ -27,8 +29,8 @@ const app = new Hono()
 
 // Global Error Boundary - The Last Line of Defense
 app.onError((err, c) => {
-	console.error(`[Global Error] ${err.name}: ${err.message}`, err.stack)
 	const requestId = crypto.randomUUID()
+	logger.error({ err, requestId }, 'Global Error caught')
 	return c.json({
 		error: 'Internal Server Error',
 		requestId
@@ -49,21 +51,56 @@ const simulateSchema = z.object({
 	userCurrency: z.string().length(3).optional()
 })
 
+// Validation Schema for Stock Query
+const stockQuerySchema = z.object({
+	symbol: z.string().regex(/^[a-zA-Z0-9^.-]{1,10}$/, "Symbol must be alphanumeric, max 10 chars"),
+	startDate: z.string().optional()
+})
+
+// Validation Schema for Resolve Query
+const resolveQuerySchema = z.object({
+	q: z.string().min(1).max(100),
+	currency: z.string().optional(),
+	limit: z.string().optional(),
+	preferred: z.string().optional()
+})
+
 // Global Security Headers
 app.use('*', secureHeaders())
 
 // Global rate limit config
-const createLimiter = (limit: number, windowMs: number = 60 * 1000) => rateLimiter({
-	windowMs,
-	limit,
-	keyGenerator: (c) => c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || '127.0.0.1',
-	handler: (c) => c.json({ error: 'Too Many Requests', details: 'Slow down to save CPU resources.' }, 429),
-})
+const createLimiter = (limit: number, windowMs: number = 60 * 1000, keyPrefix: string = 'common') => {
+	const duration = Math.ceil(windowMs / 1000);
+
+	let limiter: RateLimiterRedis | RateLimiterMemory;
+
+	if (stockCache.client) {
+		// Redis available: use it with memory insurance
+		limiter = new RateLimiterRedis({
+			storeClient: stockCache.client,
+			points: limit,
+			duration: duration,
+			keyPrefix: `rate_limit:${keyPrefix}`,
+			insuranceLimiter: new RateLimiterMemory({ points: limit, duration }),
+		});
+	} else {
+		// Fallback to memory
+		limiter = new RateLimiterMemory({ points: limit, duration });
+	}
+
+	return async (c: Context, next: Next) => {
+		const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || '127.0.0.1';
+		try {
+			await limiter.consume(ip);
+			await next();
+		} catch (rej) {
+			return c.json({ error: 'Too Many Requests', details: 'Slow down to save CPU resources.' }, 429);
+		}
+	}
+}
 
 // Configure CORS for cross-origin requests from frontend
-const corsOrigins = process.env.CORS_ORIGIN
-	? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
-	: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'];
+const corsOrigins = config.CORS_ORIGIN.split(',').map(s => s.trim());
 
 app.use('/*', cors({
 	origin: corsOrigins,
@@ -76,21 +113,28 @@ app.get('/', (c) => {
 	return c.text('StocksVsSubscription API is running!')
 })
 
-const CACHE_DURATION_SECONDS = 60 * 60 * 24 * 30; // 30 days
-const RESOLVE_CACHE_SECONDS = 60 * 60 * 24 * 30; // 30 days for name->ticker resolution
+const CACHE_DURATION_SECONDS = 60 * 60 * 24; // 24 hours freshness (stale afterwards, hard limit 60 days)
+// Hard limit managed by cache.ts defaults (60 days) or override
+const RESOLVE_CACHE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 /**
  * Reusable helper to fetch stock/currency data with Layer 1 Cache.
- * Shared across all users.
+ * Includes Circuit Breaker: fallback to stale data if Yahoo fails.
  */
 async function getStockHistory(symbol: string, startDate?: string) {
 	const cacheKey = `stock:${symbol.toUpperCase()}:${startDate || 'default'}`
 
+	// 1. Check Cache
 	const cached = await stockCache.get(cacheKey)
-	if (cached) return cached
 
+	// Fresh Hit
+	if (cached && !cached.stale) {
+		return cached.data
+	}
+
+	// Stale or Miss - Try Fetching
 	try {
-		console.log(`[L1 Cache Miss] Fetching ${symbol} from Yahoo...`)
+		logger.info({ symbol, status: cached ? 'stale' : 'miss' }, 'Fetching stock data from Yahoo')
 		const period1 = startDate || '1970-01-01'
 
 		// Add timeout and retry logic for safety on low-resource server
@@ -101,7 +145,7 @@ async function getStockHistory(symbol: string, startDate?: string) {
 				return { chart, quote }
 			} catch (err) {
 				if (retries > 0) {
-					console.warn(`Retry fetching ${symbol} (${retries} left)`)
+					logger.warn({ symbol, retriesLeft: retries }, 'Retry fetching stock')
 					return fetchWithRetry(retries - 1)
 				}
 				throw err
@@ -126,19 +170,33 @@ async function getStockHistory(symbol: string, startDate?: string) {
 			history
 		}
 
+		// Update Cache (reset freshness)
 		await stockCache.set(cacheKey, data, CACHE_DURATION_SECONDS)
 		return data
 	} catch (err) {
-		console.error(`Error fetching ${symbol}:`, err instanceof Error ? err.message : err)
+		const message = err instanceof Error ? err.message : 'Unknown error';
+
+		// 2. Circuit Breaker Fallback
+		if (cached) {
+			logger.warn({ symbol, err: message }, 'Circuit Breaker: Yahoo failed, serving STALE data')
+			return cached.data;
+		}
+
+		logger.error({ symbol, err: message }, 'Error fetching stock data')
 		throw err
 	}
 }
 
-app.get('/api/stock', async (c) => {
-	const symbol = c.req.query('symbol')
-	const startDate = c.req.query('startDate')
+// Secured Stock Endpoint: Rate Limited (20/min) + Input Validation
+app.get('/api/stock', createLimiter(20, 60 * 1000, 'stock'), zValidator('query', stockQuerySchema, (result, c) => {
+	if (!result.success) {
+		return c.json({ error: 'Bad Request', details: 'Invalid inputs', issues: result.error.issues }, 400);
+	}
+}), async (c) => {
+	const { symbol, startDate } = c.req.valid('query');
 
-	if (!symbol) return c.json({ error: 'Missing symbol' }, 400)
+	// Note: We don't need manual check 'if (!symbol)' because zod handles it (required by default).
+	// Zod regex also handles alphanumeric/length checks.
 
 	try {
 		const data = await getStockHistory(symbol, startDate)
@@ -153,7 +211,7 @@ app.get('/api/stock', async (c) => {
 })
 
 // Unified Simulation Endpoint (Layer 2 Cache) - Strictly limited (10/min)
-app.post('/api/simulate', createLimiter(10), zValidator('json', simulateSchema, (result, c) => {
+app.post('/api/simulate', createLimiter(10, 60 * 1000, 'simulate'), zValidator('json', simulateSchema, (result, c) => {
 	if (!result.success) {
 		return c.json({ error: 'Bad Request', details: 'Invalid simulation input', issues: result.error.issues }, 400)
 	}
@@ -164,14 +222,16 @@ app.post('/api/simulate', createLimiter(10), zValidator('json', simulateSchema, 
 	if (!basket || !basket.length) return c.json({ error: 'Empty basket' }, 400)
 
 	// Layer 2: Hash input for result caching
+	// Upgrade: Use SHA256 for better security/collision resistance compared to MD5
 	const bodyStr = JSON.stringify({ basket, userCurrency })
-	const hash = crypto.createHash('md5').update(bodyStr).digest('hex')
+	const hash = crypto.createHash('sha256').update(bodyStr).digest('hex')
 	const cacheKey = `simulate:${hash}`
 
 	const cached = await stockCache.get(cacheKey)
 	if (cached) {
-		console.log('[L2 Cache Hit] Returning cached simulation result')
-		return c.json(cached)
+		logger.info({ hash }, 'L2 Cache Hit: Returning cached simulation')
+		// Return cached result even if "stale" (it's expensive to recompute)
+		return c.json(cached.data)
 	}
 
 	try {
@@ -256,23 +316,25 @@ app.post('/api/simulate', createLimiter(10), zValidator('json', simulateSchema, 
 		await stockCache.set(cacheKey, finalData, CACHE_DURATION_SECONDS)
 		return c.json(finalData)
 	} catch (err: unknown) {
-		console.error('Simulation failed:', err)
+		logger.error({ err }, 'Simulation failed')
 		return c.json({ error: 'Simulation failed', details: err instanceof Error ? err.message : 'Unknown error' }, 500)
 	}
 })
 
 // Resolve a free-form query (company/brand/product) to ticker candidates - (30/min)
-app.get('/api/resolve', createLimiter(30), async (c) => {
-	const query = c.req.query('q')?.trim()
-	if (!query) return c.json({ error: 'Missing query' }, 400)
+app.get('/api/resolve', createLimiter(30, 60 * 1000, 'resolve'), zValidator('query', resolveQuerySchema, (result, c) => {
+	if (!result.success) {
+		return c.json({ error: 'Bad Request', details: 'Invalid resolve input', issues: result.error.issues }, 400);
+	}
+}), async (c) => {
+	const { q: query, preferred: preferredStr, currency, limit: limitStr } = c.req.valid('query');
 
-	const preferred = c.req.query('preferred')?.split(',').map(s => s.trim()).filter(Boolean) ?? []
-	const currency = c.req.query('currency')?.trim()
-	const limit = Math.max(1, Math.min(10, parseInt(c.req.query('limit') ?? '5', 10)))
+	const preferred = preferredStr?.split(',').map(s => s.trim()).filter(Boolean) ?? []
+	const limit = Math.max(1, Math.min(10, parseInt(limitStr ?? '5', 10)))
 
 	const cacheKey = `resolve:${query.toLowerCase()}:${preferred.join('|')}:${currency ?? ''}:${limit}`
 	const cached = await stockCache.get(cacheKey)
-	if (cached) return c.json(cached)
+	if (cached) return c.json(cached.data)
 
 	try {
 		const result = await resolveTicker(yahooFinance, query, { preferredExchanges: preferred, currency, limit })
@@ -280,19 +342,22 @@ app.get('/api/resolve', createLimiter(30), async (c) => {
 		return c.json(result)
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : 'Unknown error'
-		console.error(`Error resolving ticker for '${query}':`, message)
+		logger.error({ query, err: message }, 'Error resolving ticker')
 		return c.json({ error: 'Resolve failed', details: message }, 500)
 	}
 })
 
 // Resolve a purchase description (e.g. "Honeywell deskfan in 1990 for £10") to a ticker - (30/min)
-app.get('/api/resolve/purchase', createLimiter(30), async (c) => {
-	const description = c.req.query('q')?.trim()
-	if (!description) return c.json({ error: 'Missing query' }, 400)
+// Note: We use the same schema as /api/resolve for 'q' validation (max 100 chars)
+app.get('/api/resolve/purchase', createLimiter(30, 60 * 1000, 'purchase'), zValidator('query', resolveQuerySchema, (result, c) => {
+	if (!result.success) {
+		return c.json({ error: 'Bad Request', details: 'Invalid resolve input', issues: result.error.issues }, 400);
+	}
+}), async (c) => {
+	const { q: description, preferred: preferredStr, currency, limit: limitStr } = c.req.valid('query');
 
-	const preferred = c.req.query('preferred')?.split(',').map(s => s.trim()).filter(Boolean) ?? []
-	const currency = c.req.query('currency')?.trim()
-	const limit = Math.max(1, Math.min(10, parseInt(c.req.query('limit') ?? '5', 10)))
+	const preferred = preferredStr?.split(',').map(s => s.trim()).filter(Boolean) ?? []
+	const limit = Math.max(1, Math.min(10, parseInt(limitStr ?? '5', 10)))
 
 	// Basic sanitisation
 	const cleaned = description
@@ -304,7 +369,7 @@ app.get('/api/resolve/purchase', createLimiter(30), async (c) => {
 
 	const cacheKey = `resolvePurchase:${cleaned.toLowerCase()}:${preferred.join('|')}:${currency ?? ''}:${limit}`
 	const cached = await stockCache.get(cacheKey)
-	if (cached) return c.json(cached)
+	if (cached) return c.json(cached.data)
 
 	try {
 		const result = await resolveTicker(yahooFinance, cleaned || description, { preferredExchanges: preferred, currency, limit })
@@ -312,7 +377,7 @@ app.get('/api/resolve/purchase', createLimiter(30), async (c) => {
 		return c.json(result)
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : 'Unknown error'
-		console.error(`Error resolving ticker for purchase '${description}':`, message)
+		logger.error({ description, err: message }, 'Error resolving ticker for purchase')
 		return c.json({ error: 'Resolve failed', details: message }, 500)
 	}
 })
@@ -326,13 +391,13 @@ app.get('/api/search', async (c) => {
 		return c.json(results)
 	} catch (err: unknown) {
 		const message = err instanceof Error ? err.message : 'Unknown error';
-		console.error(`Error searching ${query}: `, message)
+		logger.error({ query, err: message }, 'Error searching')
 		return c.json({ error: 'Search failed' }, 500)
 	}
 })
 
 // Get preset data for the frontend (subscriptions, products, habits) - (60/min)
-app.get('/api/presets', createLimiter(60), (c) => {
+app.get('/api/presets', createLimiter(60, 60 * 1000, 'presets'), (c) => {
 	// Set aggressive browser caching - presets rarely change
 	c.header('Cache-Control', 'public, max-age=86400'); // 24h browser cache
 	return c.json({
@@ -342,10 +407,9 @@ app.get('/api/presets', createLimiter(60), (c) => {
 	});
 })
 
-const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000
+const port = config.PORT
 
-console.log(`Server starting on port ${port}...`)
-console.log(`CORS origins: ${corsOrigins.join(', ')}`)
+logger.info({ port, corsOrigins }, 'Server starting')
 
 serve({
 	fetch: app.fetch,

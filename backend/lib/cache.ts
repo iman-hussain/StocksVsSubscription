@@ -1,100 +1,121 @@
 import Redis from 'ioredis';
+import { LRUCache } from 'lru-cache';
+import { config } from './config.js';
+import { logger } from './logger.js';
 
 type CacheValue = any;
 
+interface CacheEntry {
+	value: CacheValue;
+	freshUntil: number;
+}
+
+export interface CacheResult {
+	data: CacheValue;
+	stale: boolean;
+}
+
 export class StockCache {
 	private redis: Redis | null = null;
-	private memoryCache: Map<string, { value: CacheValue, expires: number }> = new Map();
+	private memoryCache: LRUCache<string, CacheEntry>;
 	private useRedis: boolean = false;
-	private readonly TRASH_COLLECTION_INTERVAL = 1000 * 60 * 60; // 1 hour
+	private readonly KEY_PREFIX = 'stock-app:';
 
 	constructor() {
-		if (process.env.REDIS_URL) {
-			console.log('Initializing Redis connection...');
-			this.redis = new Redis(process.env.REDIS_URL, {
+		// Initialize LRU memory cache
+		// Max 500 items, default TTL 1 hour (can be overridden per set)
+		this.memoryCache = new LRUCache({
+			max: 500,
+			ttl: 1000 * 60 * 60,
+			allowStale: false,
+		});
+
+		if (config.REDIS_URL) {
+			logger.info('Initializing Redis connection...');
+			// ioredis handles auto-reconnect by default
+			this.redis = new Redis(config.REDIS_URL, {
 				retryStrategy: (times) => {
-					const delay = Math.min(times * 50, 2000);
-					return delay;
+					// Exponential backoff with cap
+					return Math.min(times * 50, 2000);
 				},
 				maxRetriesPerRequest: 3,
-				lazyConnect: true // Don't connect immediately, wait for first command or manual connect
+				lazyConnect: true // Don't block app start
 			});
 
 			this.redis.on('error', (err) => {
-				console.error('Redis Error (Fallback to memory):', err.message);
-				this.useRedis = false;
+				logger.error({ err }, 'Redis connection error');
 			});
 
 			this.redis.on('connect', () => {
-				console.log('Redis Connected!');
+				logger.info('Redis Connected!');
 				this.useRedis = true;
 			});
 
-			// Attempt connection
-			this.redis.connect().catch(() => {
-				this.useRedis = false;
+			// Initial non-blocking connect attempt
+			this.redis.connect().catch(e => {
+				logger.error({ err: e }, 'Initial Redis connect failed (will retry)');
 			});
-
 		} else {
-			console.log('No REDIS_URL found. Using in-memory cache.');
+			logger.info('No REDIS_URL found. Using in-memory cache.');
 		}
-
-		// Cleanup memory cache periodically
-		setInterval(() => this.cleanupMemory(), this.TRASH_COLLECTION_INTERVAL);
 	}
 
-	async get(key: string): Promise<CacheValue | null> {
-		if (this.useRedis && this.redis) {
+	/**
+	 * Expose the underlying Redis client for other modules (e.g. rate limiter)
+	 */
+	get client(): Redis | null {
+		return this.redis;
+	}
+
+	async get(key: string): Promise<CacheResult | null> {
+		const namespacedKey = this.KEY_PREFIX + key;
+		let entry: CacheEntry | null = null;
+
+		// Circuit Breaker: Try Redis if connected
+		if (this.useRedis && this.redis?.status === 'ready') {
 			try {
-				const data = await this.redis.get(key);
-				if (data) {
-					return JSON.parse(data);
+				const raw = await this.redis.get(namespacedKey);
+				if (raw) {
+					entry = JSON.parse(raw);
 				}
 			} catch (e) {
-				// Fallback will naturally happen if we return null or specific handling?
-				// If Redis fails mid-operation, we might want to check memory.
-				// For simplicity, if Redis fetch fails, we assume miss or transient error.
-				console.warn('Redis get failed, falling back to memory/miss');
+				logger.warn({ key: namespacedKey, err: e }, 'Redis get failed, falling back to memory');
 			}
 		}
 
-		// Memory Fallback
-		const cached = this.memoryCache.get(key);
-		if (cached) {
-			if (Date.now() < cached.expires) {
-				return cached.value;
-			} else {
-				this.memoryCache.delete(key);
-			}
+		// Memory Fallback (L1)
+		if (!entry) {
+			entry = this.memoryCache.get(namespacedKey) || null;
 		}
-		return null;
+
+		if (!entry) return null;
+
+		return {
+			data: entry.value,
+			stale: Date.now() > entry.freshUntil
+		};
 	}
 
-	async set(key: string, value: CacheValue, ttlSeconds: number): Promise<void> {
-		// Always save to memory as backup? Or only if Redis not working?
-		// Let's prioritize Redis, use memory if Redis isn't active.
-
-		if (this.useRedis && this.redis) {
-			try {
-				await this.redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
-				return;
-			} catch (e) {
-				console.warn('Redis set failed, saving to memory');
-			}
-		}
-
-		// Save to memory
-		this.memoryCache.set(key, {
+	/**
+	 * @param ttlSeconds - Duration to consider data 'fresh'
+	 * @param maxAgeSeconds - Hard limit for storage in Redis (default 60 days)
+	 */
+	async set(key: string, value: CacheValue, ttlSeconds: number, maxAgeSeconds: number = 60 * 60 * 24 * 60): Promise<void> {
+		const namespacedKey = this.KEY_PREFIX + key;
+		const entry: CacheEntry = {
 			value,
-			expires: Date.now() + (ttlSeconds * 1000)
-		});
-	}
+			freshUntil: Date.now() + (ttlSeconds * 1000)
+		};
 
-	private cleanupMemory() {
-		const now = Date.now();
-		for (const [key, item] of this.memoryCache.entries()) {
-			if (now > item.expires) {
-				this.memoryCache.delete(key);
+		// Always write to Memory (L1) for fast fallback
+		this.memoryCache.set(namespacedKey, entry, { ttl: ttlSeconds * 1000 });
+
+		// Try writing to Redis (L2) with MaxAge (Hard Limit)
+		if (this.useRedis && this.redis?.status === 'ready') {
+			try {
+				await this.redis.set(namespacedKey, JSON.stringify(entry), 'EX', maxAgeSeconds);
+			} catch (e) {
+				logger.warn({ key: namespacedKey, err: e }, 'Redis set failed, data saved to memory only');
 			}
 		}
 	}
