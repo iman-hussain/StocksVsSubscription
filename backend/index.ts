@@ -113,7 +113,7 @@ app.get('/', (c) => {
 	return c.text('StocksVsSubscription API is running!')
 })
 
-const CACHE_DURATION_SECONDS = 60 * 60 * 24; // 24 hours freshness (stale afterwards, hard limit 60 days)
+const CACHE_DURATION_SECONDS = 60 * 60 * 24 * 30; // 30 days freshness (as requested)
 // Hard limit managed by cache.ts defaults (60 days) or override
 const RESOLVE_CACHE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
@@ -187,8 +187,8 @@ async function getStockHistory(symbol: string, startDate?: string) {
 	}
 }
 
-// Secured Stock Endpoint: Rate Limited (20/min) + Input Validation
-app.get('/api/stock', createLimiter(20, 60 * 1000, 'stock'), zValidator('query', stockQuerySchema, (result, c) => {
+// Secured Stock Endpoint: Rate Limited (40/min) + Input Validation
+app.get('/api/stock', createLimiter(40, 60 * 1000, 'stock'), zValidator('query', stockQuerySchema, (result, c) => {
 	if (!result.success) {
 		return c.json({ error: 'Bad Request', details: 'Invalid inputs', issues: result.error.issues }, 400);
 	}
@@ -210,8 +210,8 @@ app.get('/api/stock', createLimiter(20, 60 * 1000, 'stock'), zValidator('query',
 	}
 })
 
-// Unified Simulation Endpoint (Layer 2 Cache) - Strictly limited (10/min)
-app.post('/api/simulate', createLimiter(10, 60 * 1000, 'simulate'), zValidator('json', simulateSchema, (result, c) => {
+// Unified Simulation Endpoint (Layer 2 Cache) - Strictly limited (20/min)
+app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('json', simulateSchema, (result, c) => {
 	if (!result.success) {
 		return c.json({ error: 'Bad Request', details: 'Invalid simulation input', issues: result.error.issues }, 400)
 	}
@@ -321,8 +321,8 @@ app.post('/api/simulate', createLimiter(10, 60 * 1000, 'simulate'), zValidator('
 	}
 })
 
-// Resolve a free-form query (company/brand/product) to ticker candidates - (30/min)
-app.get('/api/resolve', createLimiter(30, 60 * 1000, 'resolve'), zValidator('query', resolveQuerySchema, (result, c) => {
+// Resolve a free-form query (company/brand/product) to ticker candidates - (60/min)
+app.get('/api/resolve', createLimiter(60, 60 * 1000, 'resolve'), zValidator('query', resolveQuerySchema, (result, c) => {
 	if (!result.success) {
 		return c.json({ error: 'Bad Request', details: 'Invalid resolve input', issues: result.error.issues }, 400);
 	}
@@ -347,9 +347,9 @@ app.get('/api/resolve', createLimiter(30, 60 * 1000, 'resolve'), zValidator('que
 	}
 })
 
-// Resolve a purchase description (e.g. "Honeywell deskfan in 1990 for £10") to a ticker - (30/min)
+// Resolve a purchase description (e.g. "Honeywell deskfan in 1990 for £10") to a ticker - (60/min)
 // Note: We use the same schema as /api/resolve for 'q' validation (max 100 chars)
-app.get('/api/resolve/purchase', createLimiter(30, 60 * 1000, 'purchase'), zValidator('query', resolveQuerySchema, (result, c) => {
+app.get('/api/resolve/purchase', createLimiter(60, 60 * 1000, 'purchase'), zValidator('query', resolveQuerySchema, (result, c) => {
 	if (!result.success) {
 		return c.json({ error: 'Bad Request', details: 'Invalid resolve input', issues: result.error.issues }, 400);
 	}
@@ -396,8 +396,8 @@ app.get('/api/search', async (c) => {
 	}
 })
 
-// Get preset data for the frontend (subscriptions, products, habits) - (60/min)
-app.get('/api/presets', createLimiter(60, 60 * 1000, 'presets'), (c) => {
+// Get preset data for the frontend (subscriptions, products, habits) - (120/min)
+app.get('/api/presets', createLimiter(120, 60 * 1000, 'presets'), (c) => {
 	// Set aggressive browser caching - presets rarely change
 	c.header('Cache-Control', 'public, max-age=86400'); // 24h browser cache
 	return c.json({
