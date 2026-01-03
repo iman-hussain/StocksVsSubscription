@@ -55,12 +55,29 @@
   <rect fill="none" stroke="#ffffff" stroke-width="2" stroke-opacity="0.15"
         x="1" y="1" width="510" height="510" rx="63" />
 
-  <!-- Currency symbols in 2x2 grid - LARGE and centered -->
-  <!-- Using dy offset to compensate for font ascender height and iOS rendering -->
-  <g font-size="180" text-anchor="middle" dominant-baseline="central">
-    <text class="symbol" x="128" y="148" dy="0.1em">£</text>
-    <text class="symbol" x="384" y="148" dy="0.1em">$</text>
-    <text class="symbol" x="128" y="364" dy="0.1em">€</text>
-    <text class="symbol" x="384" y="364" dy="0.1em">¥</text>
-  </g>
+  <!-- 
+    Currency symbols in 2x2 grid using nested SVGs for proper centering.
+    Each quadrant is 256x256. The nested SVG with viewBox creates a local
+    coordinate system where we can reliably center text at 50%/50%.
+  -->
+  
+  <!-- Top-left quadrant: £ -->
+  <svg x="0" y="0" width="256" height="256" viewBox="0 0 100 100">
+    <text class="symbol" x="50" y="54" font-size="70" text-anchor="middle" dominant-baseline="middle">£</text>
+  </svg>
+  
+  <!-- Top-right quadrant: $ -->
+  <svg x="256" y="0" width="256" height="256" viewBox="0 0 100 100">
+    <text class="symbol" x="50" y="54" font-size="70" text-anchor="middle" dominant-baseline="middle">$</text>
+  </svg>
+  
+  <!-- Bottom-left quadrant: € -->
+  <svg x="0" y="256" width="256" height="256" viewBox="0 0 100 100">
+    <text class="symbol" x="50" y="54" font-size="70" text-anchor="middle" dominant-baseline="middle">€</text>
+  </svg>
+  
+  <!-- Bottom-right quadrant: ¥ -->
+  <svg x="256" y="256" width="256" height="256" viewBox="0 0 100 100">
+    <text class="symbol" x="50" y="54" font-size="70" text-anchor="middle" dominant-baseline="middle">¥</text>
+  </svg>
 </svg>
