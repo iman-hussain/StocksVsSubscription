@@ -56,10 +56,11 @@
         x="1" y="1" width="510" height="510" rx="63" />
 
   <!-- Currency symbols in 2x2 grid - LARGE and centered -->
-  <g font-size="220" text-anchor="middle" dominant-baseline="central">
-    <text class="symbol" x="128" y="128">£</text>
-    <text class="symbol" x="384" y="128">$</text>
-    <text class="symbol" x="128" y="384">€</text>
-    <text class="symbol" x="384" y="384">¥</text>
+  <!-- Using dy offset to compensate for font ascender height and iOS rendering -->
+  <g font-size="180" text-anchor="middle" dominant-baseline="central">
+    <text class="symbol" x="128" y="148" dy="0.1em">£</text>
+    <text class="symbol" x="384" y="148" dy="0.1em">$</text>
+    <text class="symbol" x="128" y="364" dy="0.1em">€</text>
+    <text class="symbol" x="384" y="364" dy="0.1em">¥</text>
   </g>
 </svg>
