@@ -145,7 +145,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	const [error, setError] = useState('');
 	const [result, setResult] = useState<SimulationResult | null>(null);
 	const [itemResults, setItemResults] = useState<Record<string, SimulationResult>>({});
-	const [useSPYFallback, setUseSPYFallback] = useState(false);
+	const [fallbackIndex, setFallbackIndex] = useState<'SPY' | '^IXIC' | 'FTSE-ALLCAP' | null>(null);
 	const [lastRequestTime, setLastRequestTime] = useState(0);
 	const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
 	const [showFallbackOption, setShowFallbackOption] = useState(false);
@@ -318,9 +318,9 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			setShowFallbackOption(false);
 
 			try {
-				// If SPY fallback is enabled, override all tickers to SPY
-				const effectiveBasket = useSPYFallback
-					? basket.map(item => ({ ...item, ticker: 'SPY' }))
+// If fallback index is chosen, override all tickers to that index
+			const effectiveBasket = fallbackIndex
+				? basket.map(item => ({ ...item, ticker: fallbackIndex }))
 					: basket;
 
 				const { result, itemResults } = await simulateBasket(effectiveBasket, currency || 'GBP', abortController.signal);
@@ -361,23 +361,23 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			abortController.abort();
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [basket, currency, useSPYFallback]);
+	}, [basket, currency, fallbackIndex]);
 
 	// Show fallback option after 10 seconds of loading
 	useEffect(() => {
-		if (!loading || !loadingStartTime || useSPYFallback) return;
+		if (!loading || !loadingStartTime || fallbackIndex) return;
 
 		const timer = setTimeout(() => {
 			setShowFallbackOption(true);
 		}, 10000); // 10 seconds
 
 		return () => clearTimeout(timer);
-	}, [loading, loadingStartTime, useSPYFallback]);
+	}, [loading, loadingStartTime, fallbackIndex]);
 
-	// Handler for SPY fallback - resets error and triggers re-fetch
-	const handleUseSPYFallback = () => {
+	// Handler for fallback index - resets error and triggers re-fetch
+	const handleUseFallbackIndex = (index: 'SPY' | '^IXIC' | 'FTSE-ALLCAP') => {
 		setError('');
-		setUseSPYFallback(true);
+		setFallbackIndex(index);
 		setLastRequestTime(0); // Reset cooldown to allow immediate request
 	};
 
@@ -417,20 +417,34 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 						<ChevronLeft size={16} className="text-brand-neon" />
 						<span className="font-bold">Go Back</span>
 					</button>
-					{isRateLimit && !useSPYFallback && (
-						<button
-							onClick={handleUseSPYFallback}
-							className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
-						>
-							<span className="font-bold">Use S&P 500 Instead</span>
-						</button>
+					{isRateLimit && !fallbackIndex && (
+						<div className="flex flex-col gap-2">
+							<button
+								onClick={() => handleUseFallbackIndex('SPY')}
+								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+							>
+								<span className="font-bold">Use S&P 500 (SPY)</span>
+							</button>
+							<button
+								onClick={() => handleUseFallbackIndex('^IXIC')}
+								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+							>
+								<span className="font-bold">Use Nasdaq (^IXIC)</span>
+							</button>
+							<button
+								onClick={() => handleUseFallbackIndex('FTSE-ALLCAP')}
+								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+							>
+								<span className="font-bold">Use FTSE All-Cap (FTSE-ALLCAP)</span>
+							</button>
+						</div>
 					)}
 				</div>
 				{isRateLimit && (
 					<p className="text-gray-500 text-xs mt-2 max-w-sm">
-						{useSPYFallback
-							? 'Already using S&P 500 fallback. The index data may also be rate-limited.'
-							: 'Or use the S&P 500 index as a quick alternative - it\'s usually cached and available instantly.'
+						{fallbackIndex
+							? 'Using index fallback. The data may also be rate-limited.'
+							: 'Or use a fallback index as a quick alternative - they\'re usually cached and available instantly.'
 						}
 					</p>
 				)}
@@ -459,7 +473,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 
 				{/* Show fallback option after 10 seconds */}
 				<AnimatePresence>
-					{showFallbackOption && !useSPYFallback && (
+					{showFallbackOption && !fallbackIndex && (
 						<motion.div
 							initial={{ opacity: 0, y: 20 }}
 							animate={{ opacity: 1, y: 0 }}
@@ -467,14 +481,28 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 							className="z-10 flex flex-col items-center gap-3 mt-4"
 						>
 							<p className="text-gray-400 text-sm text-center max-w-xs">
-								Taking longer than expected? Try the S&P 500 index instead.
+								Taking longer than expected? Try using a fallback index instead.
 							</p>
-							<button
-								onClick={handleUseSPYFallback}
-								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
-							>
-								<span className="font-bold">Use S&P 500 Instead</span>
-							</button>
+							<div className="flex flex-col gap-2">
+								<button
+									onClick={() => handleUseFallbackIndex('SPY')}
+									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+								>
+									<span className="font-bold">Use S&P 500 (SPY)</span>
+								</button>
+								<button
+									onClick={() => handleUseFallbackIndex('^IXIC')}
+									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+								>
+									<span className="font-bold">Use Nasdaq (^IXIC)</span>
+								</button>
+								<button
+									onClick={() => handleUseFallbackIndex('FTSE-ALLCAP')}
+									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+								>
+									<span className="font-bold">Use FTSE All-Cap (FTSE-ALLCAP)</span>
+								</button>
+							</div>
 						</motion.div>
 					)}
 				</AnimatePresence>

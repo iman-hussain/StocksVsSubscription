@@ -9,6 +9,8 @@ import { cache as stockCache } from './lib/cache.js'
 import { resolveTicker } from './lib/resolve.js'
 import { SUBSCRIPTION_TICKERS, PRODUCT_DATABASE, HABIT_PRESETS } from './data/presets.js'
 import { getStaticSPYData } from './data/spy-fallback.js'
+import { getStaticNASDAQData } from './data/nasdaq-fallback.js'
+import { getStaticFTSEAllCapData } from './data/ftse-allcap-fallback.js'
 import { logger } from './lib/logger.js'
 import {
 	calculateMultiStockComparison,
@@ -188,20 +190,24 @@ async function releaseWarmupLock(): Promise<void> {
 }
 
 /**
- * Fetch SPY data from Alpha Vantage as fallback when Yahoo is rate limited.
- * Free tier: 25 requests/day, but we only need this for SPY.
+ * Fetch index data from Alpha Vantage as fallback when Yahoo is rate limited.
+ * Free tier: 25 requests/day.
+ * Supports SPY, ^IXIC (NASDAQ), and FTSE-ALLCAP (via VT ETF proxy)
  */
-async function fetchSPYFromAlphaVantage(startDate: string): Promise<CachedStockData | null> {
+async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Promise<CachedStockData | null> {
 	if (!config.ALPHA_VANTAGE_KEY) {
 		logger.debug('No ALPHA_VANTAGE_KEY configured, skipping fallback');
 		return null;
 	}
 
+	// Map internal symbols to Alpha Vantage compatible symbols
+	const alphaSymbol = symbol === 'FTSE-ALLCAP' ? 'VT' : symbol; // Use VT ETF as proxy for FTSE Global All Cap
+
 	try {
-		logger.info({ keyConfigured: !!config.ALPHA_VANTAGE_KEY, keyLength: config.ALPHA_VANTAGE_KEY?.length }, 'Attempting SPY fetch from Alpha Vantage fallback');
+		logger.info({ symbol, alphaSymbol, keyConfigured: !!config.ALPHA_VANTAGE_KEY, keyLength: config.ALPHA_VANTAGE_KEY?.length }, 'Attempting index fetch from Alpha Vantage fallback');
 
 		// TIME_SERIES_DAILY_ADJUSTED gives us adjusted close prices
-		const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=SPY&outputsize=full&apikey=${config.ALPHA_VANTAGE_KEY}`;
+		const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${alphaSymbol}&outputsize=full&apikey=${config.ALPHA_VANTAGE_KEY}`;
 		const response = await fetch(url);
 		const data = await response.json() as any;
 
@@ -239,15 +245,21 @@ async function fetchSPYFromAlphaVantage(startDate: string): Promise<CachedStockD
 			return null;
 		}
 
+		// Determine name based on symbol
+		let shortName = 'Index';
+		if (symbol === 'SPY') shortName = 'SPDR S&P 500 ETF Trust';
+		else if (symbol === '^IXIC') shortName = 'NASDAQ Composite';
+		else if (symbol === 'FTSE-ALLCAP') shortName = 'FTSE Global All Cap Index';
+
 		const stockData: CachedStockData = {
-			symbol: 'SPY',
-			shortName: 'SPDR S&P 500 ETF Trust',
+			symbol,
+			shortName,
 			regularMarketPrice: history[history.length - 1].adjClose,
 			currency: 'USD',
 			history
 		};
 
-		logger.info({ historyLength: history.length }, 'SPY fetched from Alpha Vantage');
+		logger.info({ symbol, historyLength: history.length }, 'Index fetched from Alpha Vantage');
 		return stockData;
 	} catch (err: any) {
 		logger.warn({ err: err.message }, 'Alpha Vantage fetch failed');
@@ -274,31 +286,45 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 		return cached.data
 	}
 
-	// For SPY: Try Alpha Vantage first if Yahoo is likely rate-limited (stale cache or miss)
-	if (symbol.toUpperCase() === 'SPY' && config.ALPHA_VANTAGE_KEY) {
-		const alphaData = await fetchSPYFromAlphaVantage(startDate || '2015-01-01');
+	// For fallback indices: Try Alpha Vantage first if Yahoo is likely rate-limited (stale cache or miss)
+	const fallbackIndices = ['SPY', '^IXIC', 'FTSE-ALLCAP'];
+	const normalizedSymbol = symbol.toUpperCase();
+	const isFallbackIndex = fallbackIndices.some(idx => idx.toUpperCase() === normalizedSymbol);
+	
+	if (isFallbackIndex && config.ALPHA_VANTAGE_KEY) {
+		const alphaData = await fetchIndexFromAlphaVantage(symbol, startDate || '2003-01-01');
 		if (alphaData) {
 			await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
 			return alphaData;
 		}
 	}
 
-	// If skipYahoo is true (SPY fallback mode), don't try Yahoo at all
+	// If skipYahoo is true (index fallback mode), don't try Yahoo at all
 	// Priority: stale cache -> static data -> fail
 	if (skipYahoo) {
 		if (cached) {
-			logger.info({ symbol }, 'SPY fallback mode: serving stale cache');
+			logger.info({ symbol }, 'Index fallback mode: serving stale cache');
 			return cached.data;
 		}
-		// For SPY specifically, use static fallback data as last resort
-		if (symbol.toUpperCase() === 'SPY') {
-			logger.info('SPY fallback mode: using static historical data');
-			const staticData = getStaticSPYData(startDate || '2015-01-01');
-			// Cache the static data so subsequent requests are faster
+		// Use static fallback data for supported indices
+		const normalizedSymbol = symbol.toUpperCase();
+		if (normalizedSymbol === 'SPY') {
+			logger.info('Index fallback mode: using static SPY data');
+			const staticData = getStaticSPYData(startDate || '1927-01-03');
+			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
+			return staticData;
+		} else if (normalizedSymbol === '^IXIC') {
+			logger.info('Index fallback mode: using static NASDAQ data');
+			const staticData = getStaticNASDAQData(startDate || '1971-02-05');
+			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
+			return staticData;
+		} else if (normalizedSymbol === 'FTSE-ALLCAP') {
+			logger.info('Index fallback mode: using static FTSE All Cap data');
+			const staticData = getStaticFTSEAllCapData(startDate || '2004-01-02');
 			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
 			return staticData;
 		}
-		logger.warn({ symbol }, 'SPY fallback mode: no cache available for non-SPY ticker');
+		logger.warn({ symbol }, 'Index fallback mode: no cache or static data available for this ticker');
 		throw new YahooRateLimitError('Stock data temporarily unavailable. Please try again later.');
 	}
 
@@ -444,8 +470,10 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 		const uniqueTickers = [...new Set(basket.map(item => item.ticker))]
 		const userBaseCurrency = userCurrency || 'GBP'
 
-		// Detect SPY-only fallback mode (all items have SPY ticker)
-		const isSPYFallbackMode = uniqueTickers.length === 1 && uniqueTickers[0].toUpperCase() === 'SPY';
+		// Detect index fallback mode (all items use a single fallback index)
+		const fallbackIndexTickers = ['SPY', '^IXIC', 'FTSE-ALLCAP'];
+		const isIndexFallbackMode = uniqueTickers.length === 1 && 
+			fallbackIndexTickers.some(idx => idx.toUpperCase() === uniqueTickers[0].toUpperCase());
 
 		// Calculate earliest date
 		const earliestDate = basket.reduce((min, item) =>
@@ -455,10 +483,10 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 
 		// Fetch stock histories sequentially to avoid bursting Yahoo's rate limit on cache misses
 		// L1 cache hits return instantly, so this only adds latency for uncached tickers
-		// In SPY fallback mode, skip Yahoo entirely (cache/Alpha Vantage only)
+		// In index fallback mode, skip Yahoo entirely (cache/Alpha Vantage/static data only)
 		const stockDataResults = [];
 		for (const ticker of uniqueTickers) {
-			const data = await getStockHistory(ticker, earliestDate, 3, isSPYFallbackMode);
+			const data = await getStockHistory(ticker, earliestDate, 3, isIndexFallbackMode);
 			stockDataResults.push(data);
 		}
 
