@@ -145,6 +145,11 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	const [error, setError] = useState('');
 	const [result, setResult] = useState<SimulationResult | null>(null);
 	const [itemResults, setItemResults] = useState<Record<string, SimulationResult>>({});
+	const [useSPYFallback, setUseSPYFallback] = useState(false);
+	const [lastRequestTime, setLastRequestTime] = useState(0);
+
+	// Cooldown period to prevent hammering (5 seconds between requests)
+	const REQUEST_COOLDOWN_MS = 5000;
 
 	// Animation numbers
 	const animatedSpent = useCountUp(result?.totalSpent || 0, 2000);
@@ -298,11 +303,23 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 		let isCancelled = false;
 
 		const fetchAndCalculate = async () => {
+			// Cooldown check - prevent hammering if user keeps retrying
+			const now = Date.now();
+			if (now - lastRequestTime < REQUEST_COOLDOWN_MS) {
+				return; // Skip if within cooldown period
+			}
+			setLastRequestTime(now);
+
 			setLoading(true);
 			setError('');
 
 			try {
-				const { result, itemResults } = await simulateBasket(basket, currency || 'GBP', abortController.signal);
+				// If SPY fallback is enabled, override all tickers to SPY
+				const effectiveBasket = useSPYFallback
+					? basket.map(item => ({ ...item, ticker: 'SPY' }))
+					: basket;
+
+				const { result, itemResults } = await simulateBasket(effectiveBasket, currency || 'GBP', abortController.signal);
 
 				// Prevent setting state if the effect was cleaned up
 				if (!isCancelled) {
@@ -337,7 +354,15 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			isCancelled = true;
 			abortController.abort();
 		};
-	}, [basket, currency]);
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [basket, currency, useSPYFallback]);
+
+	// Handler for SPY fallback - resets error and triggers re-fetch
+	const handleUseSPYFallback = () => {
+		setError('');
+		setUseSPYFallback(true);
+		setLastRequestTime(0); // Reset cooldown to allow immediate request
+	};
 
 	// Error State - Displayed FIRST to prevent masking errors with empty state
 	if (error) {
@@ -357,7 +382,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 					</h3>
 					<p className="text-gray-400 text-sm leading-relaxed mb-4">
 						{isRateLimit
-							? 'Our stock data provider is temporarily rate-limiting requests. This usually resolves within 1-2 hours. Please try again later!'
+							? 'Our stock data provider is temporarily rate-limiting requests. This usually resolves within 1-2 hours.'
 							: 'We couldn\'t crunch your numbers. This could be a temporary issue with our data provider.'
 						}
 					</p>
@@ -367,13 +392,31 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 						</p>
 					)}
 				</div>
-				<button
-					onClick={onBack}
-					className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-gray-400 hover:text-white transition-all duration-300"
-				>
-					<ChevronLeft size={16} className="text-brand-neon" />
-					<span className="font-bold">Go Back</span>
-				</button>
+				<div className="flex flex-col sm:flex-row gap-3">
+					<button
+						onClick={onBack}
+						className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-gray-400 hover:text-white transition-all duration-300"
+					>
+						<ChevronLeft size={16} className="text-brand-neon" />
+						<span className="font-bold">Go Back</span>
+					</button>
+					{isRateLimit && !useSPYFallback && (
+						<button
+							onClick={handleUseSPYFallback}
+							className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+						>
+							<span className="font-bold">Use S&P 500 Instead</span>
+						</button>
+					)}
+				</div>
+				{isRateLimit && (
+					<p className="text-gray-500 text-xs mt-2 max-w-sm">
+						{useSPYFallback
+							? 'Already using S&P 500 fallback. The index data may also be rate-limited.'
+							: 'Or use the S&P 500 index as a quick alternative - it\'s usually cached and available instantly.'
+						}
+					</p>
+				)}
 			</motion.div>
 		);
 	}

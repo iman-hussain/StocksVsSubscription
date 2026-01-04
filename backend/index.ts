@@ -25,6 +25,23 @@ import { zValidator } from '@hono/zod-validator'
 // Instantiate yahoo-finance2 v3 client
 const yahooFinance = new YahooFinance();
 
+// Top 30 tickers by usage in presets + market popularity + SPY index
+// These are pre-warmed on server startup and can be refreshed via /api/warmup
+const TOP_TICKERS = [
+	// Index fund (most important for fallback)
+	'SPY',
+	// Tech Giants (most common in presets)
+	'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NFLX', 'NVDA', 'ADBE', 'CRM',
+	// Gaming & Entertainment
+	'SONY', 'EA', 'NTDOY', 'TTWO', 'DIS', 'WBD', 'SPOT', 'RBLX',
+	// E-commerce & Services
+	'SHOP', 'UBER', 'DASH', 'ZM', 'DBX', 'DOCU',
+	// Hardware & Automotive
+	'TSLA', 'DELL', 'INTC', 'AMD',
+	// Consumer staples (habits)
+	'SBUX', 'MCD'
+];
+
 const app = new Hono()
 
 // Global Error Boundary - The Last Line of Defense
@@ -440,6 +457,63 @@ app.get('/api/presets', createLimiter(120, 60 * 1000, 'presets'), (c) => {
 		habits: HABIT_PRESETS,
 	});
 })
+
+// Cache warmup endpoint - fetches top tickers sequentially with delays
+// Protected by very low rate limit (1/min) to prevent abuse
+app.post('/api/warmup', createLimiter(1, 60 * 1000, 'warmup'), async (c) => {
+	const results: { ticker: string; status: 'cached' | 'fetched' | 'failed'; error?: string }[] = [];
+	const startDate = '2015-01-01'; // Common historical start date
+
+	logger.info({ tickerCount: TOP_TICKERS.length }, 'Starting cache warmup');
+
+	for (const ticker of TOP_TICKERS) {
+		try {
+			const cacheKey = `stock:${ticker}:${startDate}`;
+			const cached = await stockCache.get(cacheKey);
+
+			if (cached && !cached.stale) {
+				results.push({ ticker, status: 'cached' });
+				continue;
+			}
+
+			// Fetch with delay to avoid rate limits
+			await getStockHistory(ticker, startDate);
+			results.push({ ticker, status: 'fetched' });
+
+			// Wait 2 seconds between fetches to be gentle on Yahoo
+			await delay(2000);
+		} catch (err: any) {
+			logger.warn({ ticker, err: err.message }, 'Warmup failed for ticker');
+			results.push({ ticker, status: 'failed', error: err.message });
+
+			// If rate limited, stop warmup early
+			if (err instanceof YahooRateLimitError) {
+				logger.warn('Rate limit hit during warmup, stopping early');
+				break;
+			}
+		}
+	}
+
+	const summary = {
+		total: TOP_TICKERS.length,
+		cached: results.filter(r => r.status === 'cached').length,
+		fetched: results.filter(r => r.status === 'fetched').length,
+		failed: results.filter(r => r.status === 'failed').length,
+	};
+
+	logger.info(summary, 'Cache warmup complete');
+	return c.json({ summary, results });
+});
+
+// Check cache status for SPY (used by frontend to determine if fallback is available)
+app.get('/api/cache-status/spy', createLimiter(60, 60 * 1000, 'cache-status'), async (c) => {
+	const cacheKey = 'stock:SPY:2015-01-01';
+	const cached = await stockCache.get(cacheKey);
+	return c.json({
+		available: !!cached,
+		stale: cached?.stale ?? true,
+	});
+});
 
 const port = config.PORT
 
