@@ -206,8 +206,8 @@ async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Pr
 	try {
 		logger.info({ symbol, alphaSymbol, keyConfigured: !!config.ALPHA_VANTAGE_KEY, keyLength: config.ALPHA_VANTAGE_KEY?.length }, 'Attempting index fetch from Alpha Vantage fallback');
 
-		// TIME_SERIES_DAILY_ADJUSTED gives us adjusted close prices
-		const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=${alphaSymbol}&outputsize=full&apikey=${config.ALPHA_VANTAGE_KEY}`;
+		// TIME_SERIES_DAILY is free tier; DAILY_ADJUSTED is premium
+		const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${alphaSymbol}&outputsize=full&apikey=${config.ALPHA_VANTAGE_KEY}`;
 		const response = await fetch(url);
 		const data = await response.json() as any;
 
@@ -232,10 +232,11 @@ async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Pr
 		}
 
 		// Convert to our format and filter by start date
+		// Free tier uses '4. close' instead of '5. adjusted close'
 		const history = Object.entries(timeSeries)
 			.map(([date, values]: [string, any]) => ({
 				date,
-				adjClose: parseFloat(values['5. adjusted close']) || 0
+				adjClose: parseFloat(values['4. close']) || 0
 			}))
 			.filter(h => h.date >= startDate && h.adjClose > 0)
 			.sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
@@ -408,9 +409,19 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Unknown error';
 
-		// Circuit Breaker Fallback - serve stale data if available
+		// Try Alpha Vantage fallback for indices if Yahoo failed and we haven't tried it yet
+		if (isFallbackIndex && config.ALPHA_VANTAGE_KEY && !skipYahoo) {
+			logger.info({ symbol }, 'Yahoo failed, attempting Alpha Vantage fallback');
+			const alphaData = await fetchIndexFromAlphaVantage(symbol, startDate || '2003-01-01');
+			if (alphaData) {
+				await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
+				return alphaData;
+			}
+		}
+
+		// Circuit Breaker Fallback - serve stale data if available (even after Alpha Vantage failure)
 		if (cached) {
-			logger.warn({ symbol, err: message }, 'Circuit Breaker: Yahoo failed, serving STALE data')
+			logger.warn({ symbol, err: message }, 'Circuit Breaker: serving STALE data after all providers failed')
 			return cached.data;
 		}
 
@@ -486,7 +497,7 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 		// In index fallback mode, skip Yahoo entirely (cache/Alpha Vantage/static data only)
 		const stockDataResults = [];
 		for (const ticker of uniqueTickers) {
-			const data = await getStockHistory(ticker, earliestDate, 0, isIndexFallbackMode);
+			const data = await getStockHistory(ticker, earliestDate, 2, isIndexFallbackMode);
 			stockDataResults.push(data);
 		}
 
@@ -507,7 +518,7 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 		// Fetch currency pairs sequentially to avoid rate limits
 		const currencyResults = [];
 		for (const pair of Array.from(currencyPairs)) {
-			const data = await getStockHistory(pair, earliestDate);
+			const data = await getStockHistory(pair, earliestDate, 2);
 			currencyResults.push(data);
 		}
 
