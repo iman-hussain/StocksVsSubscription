@@ -363,6 +363,14 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [basket, currency, fallbackIndex]);
 
+	// Reset fallback index when basket changes (user edited items)
+	useEffect(() => {
+		if (fallbackIndex) {
+			setFallbackIndex(null);
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [basket]);
+
 	// Show fallback option after 10 seconds of loading
 	useEffect(() => {
 		if (!loading || !loadingStartTime || fallbackIndex) return;

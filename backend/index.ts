@@ -292,11 +292,12 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 	}
 
 	// For fallback indices: Try Alpha Vantage first if Yahoo is likely rate-limited (stale cache or miss)
+	// BUT skip Alpha Vantage entirely in index fallback mode (user explicitly chose index)
 	const fallbackIndices = ['SPY', '^IXIC', '^FTSE'];
 	const normalizedSymbol = symbol.toUpperCase();
 	const isFallbackIndex = fallbackIndices.some(idx => idx.toUpperCase() === normalizedSymbol);
 
-	if (isFallbackIndex && config.ALPHA_VANTAGE_KEY) {
+	if (isFallbackIndex && config.ALPHA_VANTAGE_KEY && !skipYahoo) {
 		const alphaData = await fetchIndexFromAlphaVantage(symbol, startDate || '2003-01-01');
 		if (alphaData) {
 			await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
