@@ -10,7 +10,7 @@ import { resolveTicker } from './lib/resolve.js'
 import { SUBSCRIPTION_TICKERS, PRODUCT_DATABASE, HABIT_PRESETS } from './data/presets.js'
 import { getStaticSPYData } from './data/spy-fallback.js'
 import { getStaticNASDAQData } from './data/nasdaq-fallback.js'
-import { getStaticFTSEAllCapData } from './data/ftse-allcap-fallback.js'
+import { getStaticFTSE100Data } from './data/ftse100-fallback.js'
 import { logger } from './lib/logger.js'
 import {
 	calculateMultiStockComparison,
@@ -192,7 +192,7 @@ async function releaseWarmupLock(): Promise<void> {
 /**
  * Fetch index data from Alpha Vantage as fallback when Yahoo is rate limited.
  * Free tier: 25 requests/day.
- * Supports SPY, ^IXIC (NASDAQ), and FTSE-ALLCAP (via VT ETF proxy)
+ * Supports SPY, ^IXIC (NASDAQ), and ^FTSE (FTSE 100 via ISF ETF proxy)
  */
 async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Promise<CachedStockData | null> {
 	if (!config.ALPHA_VANTAGE_KEY) {
@@ -201,7 +201,7 @@ async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Pr
 	}
 
 	// Map internal symbols to Alpha Vantage compatible symbols
-	const alphaSymbol = symbol === 'FTSE-ALLCAP' ? 'VT' : symbol; // Use VT ETF as proxy for FTSE Global All Cap
+	const alphaSymbol = symbol === '^FTSE' ? 'ISF' : symbol; // Use ISF ETF as proxy for FTSE 100
 
 	try {
 		logger.info({ symbol, alphaSymbol, keyConfigured: !!config.ALPHA_VANTAGE_KEY, keyLength: config.ALPHA_VANTAGE_KEY?.length }, 'Attempting index fetch from Alpha Vantage fallback');
@@ -249,7 +249,7 @@ async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Pr
 		let shortName = 'Index';
 		if (symbol === 'SPY') shortName = 'SPDR S&P 500 ETF Trust';
 		else if (symbol === '^IXIC') shortName = 'NASDAQ Composite';
-		else if (symbol === 'FTSE-ALLCAP') shortName = 'FTSE Global All Cap Index';
+		else if (symbol === '^FTSE') shortName = 'FTSE 100 Index';
 
 		const stockData: CachedStockData = {
 			symbol,
@@ -287,7 +287,7 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 	}
 
 	// For fallback indices: Try Alpha Vantage first if Yahoo is likely rate-limited (stale cache or miss)
-	const fallbackIndices = ['SPY', '^IXIC', 'FTSE-ALLCAP'];
+	const fallbackIndices = ['SPY', '^IXIC', '^FTSE'];
 	const normalizedSymbol = symbol.toUpperCase();
 	const isFallbackIndex = fallbackIndices.some(idx => idx.toUpperCase() === normalizedSymbol);
 
@@ -318,9 +318,9 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 			const staticData = getStaticNASDAQData(startDate || '1971-02-05');
 			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
 			return staticData;
-		} else if (normalizedSymbol === 'FTSE-ALLCAP') {
-			logger.info('Index fallback mode: using static FTSE All Cap data');
-			const staticData = getStaticFTSEAllCapData(startDate || '2004-01-02');
+		} else if (normalizedSymbol === '^FTSE') {
+			logger.info('Index fallback mode: using static FTSE 100 data');
+			const staticData = getStaticFTSE100Data(startDate || '1984-01-03');
 			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
 			return staticData;
 		}
@@ -471,7 +471,7 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 		const userBaseCurrency = userCurrency || 'GBP'
 
 		// Detect index fallback mode (all items use a single fallback index)
-		const fallbackIndexTickers = ['SPY', '^IXIC', 'FTSE-ALLCAP'];
+		const fallbackIndexTickers = ['SPY', '^IXIC', '^FTSE'];
 		const isIndexFallbackMode = uniqueTickers.length === 1 &&
 			fallbackIndexTickers.some(idx => idx.toUpperCase() === uniqueTickers[0].toUpperCase());
 

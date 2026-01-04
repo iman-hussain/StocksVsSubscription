@@ -145,7 +145,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	const [error, setError] = useState('');
 	const [result, setResult] = useState<SimulationResult | null>(null);
 	const [itemResults, setItemResults] = useState<Record<string, SimulationResult>>({});
-	const [fallbackIndex, setFallbackIndex] = useState<'SPY' | '^IXIC' | 'FTSE-ALLCAP' | null>(null);
+	const [fallbackIndex, setFallbackIndex] = useState<'SPY' | '^IXIC' | '^FTSE' | null>(null);
 	const [lastRequestTime, setLastRequestTime] = useState(0);
 	const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
 	const [showFallbackOption, setShowFallbackOption] = useState(false);
@@ -363,19 +363,19 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [basket, currency, fallbackIndex]);
 
-	// Show fallback option after 5 seconds of loading
+	// Show fallback option after 10 seconds of loading
 	useEffect(() => {
 		if (!loading || !loadingStartTime || fallbackIndex) return;
 
 		const timer = setTimeout(() => {
 			setShowFallbackOption(true);
-		}, 5000); // 5 seconds
+		}, 10000); // 10 seconds
 
 		return () => clearTimeout(timer);
 	}, [loading, loadingStartTime, fallbackIndex]);
 
 	// Handler for fallback index - resets error and triggers re-fetch
-	const handleUseFallbackIndex = (index: 'SPY' | '^IXIC' | 'FTSE-ALLCAP') => {
+	const handleUseFallbackIndex = (index: 'SPY' | '^IXIC' | '^FTSE') => {
 		setError('');
 		setFallbackIndex(index);
 		setLastRequestTime(0); // Reset cooldown to allow immediate request
@@ -425,19 +425,19 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 									onClick={() => handleUseFallbackIndex('SPY')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">S&P 500</span>
+									<span className="font-bold">S&P 500 (SPY)</span>
 								</button>
 								<button
 									onClick={() => handleUseFallbackIndex('^IXIC')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">NASDAQ Composite</span>
+									<span className="font-bold">NASDAQ Composite (^IXIC)</span>
 								</button>
 								<button
-									onClick={() => handleUseFallbackIndex('FTSE-ALLCAP')}
-									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
-								>
-									<span className="font-bold">FTSE Global All Cap</span>
+								onClick={() => handleUseFallbackIndex('^FTSE')}
+								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+							>
+								<span className="font-bold">FTSE 100 (^FTSE)</span>
 								</button>
 							</div>
 						</div>
@@ -489,19 +489,19 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 									onClick={() => handleUseFallbackIndex('SPY')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">S&P 500</span>
+									<span className="font-bold">S&P 500 (SPY)</span>
 								</button>
 								<button
 									onClick={() => handleUseFallbackIndex('^IXIC')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">NASDAQ Composite</span>
+									<span className="font-bold">NASDAQ Composite (^IXIC)</span>
 								</button>
 								<button
-									onClick={() => handleUseFallbackIndex('FTSE-ALLCAP')}
+									onClick={() => handleUseFallbackIndex('^FTSE')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">FTSE Global All Cap</span>
+									<span className="font-bold">FTSE 100 (^FTSE)</span>
 								</button>
 							</div>
 						</motion.div>
