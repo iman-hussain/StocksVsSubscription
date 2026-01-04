@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { Hono, type Context, type Next } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
+import { compress } from 'hono/compress'
 import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible'
 import YahooFinance from 'yahoo-finance2'
 import { config } from './lib/config.js'
@@ -96,8 +97,21 @@ const resolveQuerySchema = z.object({
 	preferred: z.string().optional()
 })
 
-// Global Security Headers
+// Configure CORS for cross-origin requests from frontend
+const corsOrigins = config.CORS_ORIGIN.split(',').map(s => s.trim());
+
+// Global Security & Performance Middleware (Order matters)
+// 1. CORS - must be first to handle preflight requests
+// 2. Security Headers - adds X-Frame-Options, X-Content-Type-Options, etc.
+// 3. Compression - automatic Gzip/Brotli for response bodies
+app.use('/*', cors({
+	origin: corsOrigins,
+	allowMethods: ['GET', 'POST', 'OPTIONS'],
+	allowHeaders: ['Content-Type'],
+	maxAge: 86400,
+}))
 app.use('*', secureHeaders())
+app.use('*', compress())
 
 // Global rate limit config
 const createLimiter = (limit: number, windowMs: number = 60 * 1000, keyPrefix: string = 'common') => {
@@ -129,16 +143,6 @@ const createLimiter = (limit: number, windowMs: number = 60 * 1000, keyPrefix: s
 		}
 	}
 }
-
-// Configure CORS for cross-origin requests from frontend
-const corsOrigins = config.CORS_ORIGIN.split(',').map(s => s.trim());
-
-app.use('/*', cors({
-	origin: corsOrigins,
-	allowMethods: ['GET', 'POST', 'OPTIONS'],
-	allowHeaders: ['Content-Type'],
-	maxAge: 86400,
-}))
 
 app.get('/', (c) => {
 	return c.text('StocksVsSubscription API is running!')
