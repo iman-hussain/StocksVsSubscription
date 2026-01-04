@@ -271,11 +271,11 @@ async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Pr
  * Reusable helper to fetch stock/currency data with Layer 1 Cache.
  * Includes Circuit Breaker: fallback to stale data if Yahoo fails.
  *
- * @param maxRetries - Limit retries for user-facing requests (default: 3 = ~35s wait max).
+ * @param maxRetries - Limit retries for user-facing requests (default: 0 = fail fast on rate limit).
  *                     Set higher for background warmup tasks.
- * @param skipYahoo - If true, skip Yahoo entirely (for SPY fallback mode - cache/Alpha Vantage only).
+ * @param skipYahoo - If true, skip Yahoo entirely (for index fallback mode - cache/Alpha Vantage only).
  */
-async function getStockHistory(symbol: string, startDate?: string, maxRetries: number = 3, skipYahoo: boolean = false) {
+async function getStockHistory(symbol: string, startDate?: string, maxRetries: number = 0, skipYahoo: boolean = false) {
 	const cacheKey = `stock:${symbol.toUpperCase()}:${startDate || 'default'}`
 
 	// 1. Check Cache
@@ -486,7 +486,7 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 		// In index fallback mode, skip Yahoo entirely (cache/Alpha Vantage/static data only)
 		const stockDataResults = [];
 		for (const ticker of uniqueTickers) {
-			const data = await getStockHistory(ticker, earliestDate, 3, isIndexFallbackMode);
+			const data = await getStockHistory(ticker, earliestDate, 0, isIndexFallbackMode);
 			stockDataResults.push(data);
 		}
 

@@ -363,13 +363,13 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [basket, currency, fallbackIndex]);
 
-	// Show fallback option after 10 seconds of loading
+	// Show fallback option after 5 seconds of loading
 	useEffect(() => {
 		if (!loading || !loadingStartTime || fallbackIndex) return;
 
 		const timer = setTimeout(() => {
 			setShowFallbackOption(true);
-		}, 10000); // 10 seconds
+		}, 5000); // 5 seconds
 
 		return () => clearTimeout(timer);
 	}, [loading, loadingStartTime, fallbackIndex]);
@@ -418,34 +418,34 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 						<span className="font-bold">Go Back</span>
 					</button>
 					{isRateLimit && !fallbackIndex && (
-						<div className="flex flex-col gap-2">
-							<button
-								onClick={() => handleUseFallbackIndex('SPY')}
-								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
-							>
-								<span className="font-bold">Use S&P 500 (SPY)</span>
-							</button>
-							<button
-								onClick={() => handleUseFallbackIndex('^IXIC')}
-								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
-							>
-								<span className="font-bold">Use Nasdaq (^IXIC)</span>
-							</button>
-							<button
-								onClick={() => handleUseFallbackIndex('FTSE-ALLCAP')}
-								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
-							>
-								<span className="font-bold">Use FTSE All-Cap (FTSE-ALLCAP)</span>
-							</button>
+						<div className="flex flex-col gap-3">
+							<p className="text-gray-400 text-sm text-center">Use index fund instead?</p>
+							<div className="flex flex-col gap-2">
+								<button
+									onClick={() => handleUseFallbackIndex('SPY')}
+									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+								>
+									<span className="font-bold">S&P 500</span>
+								</button>
+								<button
+									onClick={() => handleUseFallbackIndex('^IXIC')}
+									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+								>
+									<span className="font-bold">NASDAQ Composite</span>
+								</button>
+								<button
+									onClick={() => handleUseFallbackIndex('FTSE-ALLCAP')}
+									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+								>
+									<span className="font-bold">FTSE Global All Cap</span>
+								</button>
+							</div>
 						</div>
 					)}
 				</div>
-				{isRateLimit && (
-					<p className="text-gray-500 text-xs mt-2 max-w-sm">
-						{fallbackIndex
-							? 'Using index fallback. The data may also be rate-limited.'
-							: 'Or use a fallback index as a quick alternative - they\'re usually cached and available instantly.'
-						}
+				{isRateLimit && !fallbackIndex && (
+					<p className="text-gray-500 text-xs mt-2 max-w-sm text-center">
+						Index funds are usually cached and available instantly
 					</p>
 				)}
 			</motion.div>
@@ -481,26 +481,27 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 							className="z-10 flex flex-col items-center gap-3 mt-4"
 						>
 							<p className="text-gray-400 text-sm text-center max-w-xs">
-								Taking longer than expected? Try using a fallback index instead.
+								Taking longer than expected?
 							</p>
+							<p className="text-gray-400 text-sm text-center">Use index fund instead?</p>
 							<div className="flex flex-col gap-2">
 								<button
 									onClick={() => handleUseFallbackIndex('SPY')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">Use S&P 500 (SPY)</span>
+									<span className="font-bold">S&P 500</span>
 								</button>
 								<button
 									onClick={() => handleUseFallbackIndex('^IXIC')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">Use Nasdaq (^IXIC)</span>
+									<span className="font-bold">NASDAQ Composite</span>
 								</button>
 								<button
 									onClick={() => handleUseFallbackIndex('FTSE-ALLCAP')}
 									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
 								>
-									<span className="font-bold">Use FTSE All-Cap (FTSE-ALLCAP)</span>
+									<span className="font-bold">FTSE Global All Cap</span>
 								</button>
 							</div>
 						</motion.div>
