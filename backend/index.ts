@@ -249,8 +249,11 @@ async function fetchSPYFromAlphaVantage(startDate: string): Promise<CachedStockD
 /**
  * Reusable helper to fetch stock/currency data with Layer 1 Cache.
  * Includes Circuit Breaker: fallback to stale data if Yahoo fails.
+ *
+ * @param maxRetries - Limit retries for user-facing requests (default: 3 = ~35s wait max).
+ *                     Set higher for background warmup tasks.
  */
-async function getStockHistory(symbol: string, startDate?: string) {
+async function getStockHistory(symbol: string, startDate?: string, maxRetries: number = 3) {
 	const cacheKey = `stock:${symbol.toUpperCase()}:${startDate || 'default'}`
 
 	// 1. Check Cache
@@ -261,13 +264,21 @@ async function getStockHistory(symbol: string, startDate?: string) {
 		return cached.data
 	}
 
+	// For SPY: Try Alpha Vantage first if Yahoo is likely rate-limited (stale cache or miss)
+	if (symbol.toUpperCase() === 'SPY' && config.ALPHA_VANTAGE_KEY) {
+		const alphaData = await fetchSPYFromAlphaVantage(startDate || '2015-01-01');
+		if (alphaData) {
+			await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
+			return alphaData;
+		}
+	}
+
 	// Stale or Miss - Try Fetching
 	try {
 		logger.info({ symbol, status: cached ? 'stale' : 'miss' }, 'Fetching stock data from Yahoo')
 		const period1 = startDate || '1970-01-01'
 
-		// Aggressive exponential backoff: 5s, 30s, 1m, 3m, 5m, 10m, 30m, 1h, 2h, 4h, 6h, 12h
-		// Will keep retrying with increasing delays until Yahoo relents
+		// Exponential backoff delays - user-facing requests limited by maxRetries param
 		const RETRY_DELAYS_MS = [
 			5_000,       // 5 seconds
 			30_000,      // 30 seconds
@@ -283,20 +294,27 @@ async function getStockHistory(symbol: string, startDate?: string) {
 			43_200_000,  // 12 hours
 		];
 
+		const effectiveMaxRetries = Math.min(maxRetries, RETRY_DELAYS_MS.length);
+
 		const fetchWithRetry = async (attempt = 0): Promise<any> => {
 			try {
 				const chart = await yahooFinance.chart(symbol, { period1, interval: '1d' })
 				const quote = await yahooFinance.quote(symbol)
 				return { chart, quote }
 			} catch (err: any) {
-				// If we've exhausted all retries, give up
-				if (attempt >= RETRY_DELAYS_MS.length) {
+				// Detect Yahoo rate limiting (429)
+				const isRateLimit = err?.code === 429 || err?.message?.includes('Too Many Requests');
+
+				// If we've hit max retries, fail fast with appropriate error
+				if (attempt >= effectiveMaxRetries) {
+					if (isRateLimit) {
+						logger.warn({ symbol, attempts: attempt }, 'Max retries reached (rate limited), failing fast');
+						throw new YahooRateLimitError('Yahoo Finance rate limit exceeded. Please try again later.');
+					}
 					logger.error({ symbol, attempts: attempt }, 'All retries exhausted');
 					throw err;
 				}
 
-				// Detect Yahoo rate limiting (429)
-				const isRateLimit = err?.code === 429 || err?.message?.includes('Too Many Requests');
 				const waitTime = RETRY_DELAYS_MS[attempt];
 				const waitLabel = waitTime >= 60_000 ? `${waitTime / 60_000}m` : `${waitTime / 1000}s`;
 
@@ -335,16 +353,7 @@ async function getStockHistory(symbol: string, startDate?: string) {
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Unknown error';
 
-		// SPY Fallback: Try Alpha Vantage if Yahoo fails for SPY
-		if (symbol.toUpperCase() === 'SPY') {
-			const alphaData = await fetchSPYFromAlphaVantage(startDate || '2015-01-01');
-			if (alphaData) {
-				await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
-				return alphaData;
-			}
-		}
-
-		// 2. Circuit Breaker Fallback
+		// Circuit Breaker Fallback - serve stale data if available
 		if (cached) {
 			logger.warn({ symbol, err: message }, 'Circuit Breaker: Yahoo failed, serving STALE data')
 			return cached.data;
@@ -722,7 +731,8 @@ async function runAutoWarmup() {
 
 	for (const { ticker } of tickersWithAge) {
 		try {
-			await getStockHistory(ticker, WARMUP_START_DATE);
+			// Use high maxRetries for warmup - we're patient and want to eventually succeed
+			await getStockHistory(ticker, WARMUP_START_DATE, 12);
 			fetched++;
 			retryAttempt = 0; // Reset backoff on success
 

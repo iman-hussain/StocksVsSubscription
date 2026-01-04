@@ -28,7 +28,7 @@ export const Footer = () => {
 
 					{/* Right: Data source */}
 					<p className="text-sm text-gray-400 whitespace-nowrap">
-						Data via Yahoo Finance API
+					Data via Yahoo Finance & Alpha Vantage
 					</p>
 				</div>
 			</div>

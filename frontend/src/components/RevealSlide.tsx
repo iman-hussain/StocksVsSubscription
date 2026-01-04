@@ -147,6 +147,8 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	const [itemResults, setItemResults] = useState<Record<string, SimulationResult>>({});
 	const [useSPYFallback, setUseSPYFallback] = useState(false);
 	const [lastRequestTime, setLastRequestTime] = useState(0);
+	const [loadingStartTime, setLoadingStartTime] = useState<number | null>(null);
+	const [showFallbackOption, setShowFallbackOption] = useState(false);
 
 	// Cooldown period to prevent hammering (5 seconds between requests)
 	const REQUEST_COOLDOWN_MS = 5000;
@@ -312,6 +314,8 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 
 			setLoading(true);
 			setError('');
+			setLoadingStartTime(Date.now());
+			setShowFallbackOption(false);
 
 			try {
 				// If SPY fallback is enabled, override all tickers to SPY
@@ -337,6 +341,8 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			} finally {
 				if (!isCancelled) {
 					setLoading(false);
+					setLoadingStartTime(null);
+					setShowFallbackOption(false);
 				}
 			}
 		};
@@ -356,6 +362,17 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 		};
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [basket, currency, useSPYFallback]);
+
+	// Show fallback option after 10 seconds of loading
+	useEffect(() => {
+		if (!loading || !loadingStartTime || useSPYFallback) return;
+
+		const timer = setTimeout(() => {
+			setShowFallbackOption(true);
+		}, 10000); // 10 seconds
+
+		return () => clearTimeout(timer);
+	}, [loading, loadingStartTime, useSPYFallback]);
 
 	// Handler for SPY fallback - resets error and triggers re-fetch
 	const handleUseSPYFallback = () => {
@@ -439,6 +456,28 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 					className="w-12 h-12 border-4 border-brand-neon border-t-transparent rounded-full z-10"
 				/>
 				<p className="text-brand-neon font-semibold z-10">Crunching Numbers...</p>
+
+				{/* Show fallback option after 10 seconds */}
+				<AnimatePresence>
+					{showFallbackOption && !useSPYFallback && (
+						<motion.div
+							initial={{ opacity: 0, y: 20 }}
+							animate={{ opacity: 1, y: 0 }}
+							exit={{ opacity: 0, y: -10 }}
+							className="z-10 flex flex-col items-center gap-3 mt-4"
+						>
+							<p className="text-gray-400 text-sm text-center max-w-xs">
+								Taking longer than expected? Try the S&P 500 index instead.
+							</p>
+							<button
+								onClick={handleUseSPYFallback}
+								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+							>
+								<span className="font-bold">Use S&P 500 Instead</span>
+							</button>
+						</motion.div>
+					)}
+				</AnimatePresence>
 			</motion.div>
 		);
 	}
