@@ -97,6 +97,38 @@ export class StockCache {
 	}
 
 	/**
+	 * Get the age of a cached entry in milliseconds.
+	 * Returns null if not cached, or the ms since freshUntil was set.
+	 * Higher values = older/staler cache.
+	 */
+	async getCacheAge(key: string): Promise<number | null> {
+		const namespacedKey = this.KEY_PREFIX + key;
+		let entry: CacheEntry | null = null;
+
+		// Try Redis first
+		if (this.useRedis && this.redis?.status === 'ready') {
+			try {
+				const raw = await this.redis.get(namespacedKey);
+				if (raw) {
+					entry = JSON.parse(raw);
+				}
+			} catch {
+				// Fall through to memory
+			}
+		}
+
+		// Memory fallback
+		if (!entry) {
+			entry = this.memoryCache.get(namespacedKey) || null;
+		}
+
+		if (!entry) return null;
+
+		// Return how far past freshUntil we are (negative if still fresh)
+		return Date.now() - entry.freshUntil;
+	}
+
+	/**
 	 * @param ttlSeconds - Duration to consider data 'fresh'
 	 * @param maxAgeSeconds - Hard limit for storage in Redis (default 60 days)
 	 */

@@ -165,27 +165,48 @@ async function getStockHistory(symbol: string, startDate?: string) {
 		logger.info({ symbol, status: cached ? 'stale' : 'miss' }, 'Fetching stock data from Yahoo')
 		const period1 = startDate || '1970-01-01'
 
-		// Retry with exponential backoff to avoid hammering Yahoo when rate-limited
-		const fetchWithRetry = async (retries = 2, baseDelay = 1000): Promise<any> => {
+		// Aggressive exponential backoff: 5s, 30s, 1m, 3m, 5m, 10m, 30m, 1h, 2h, 4h, 6h, 12h
+		// Will keep retrying with increasing delays until Yahoo relents
+		const RETRY_DELAYS_MS = [
+			5_000,       // 5 seconds
+			30_000,      // 30 seconds
+			60_000,      // 1 minute
+			180_000,     // 3 minutes
+			300_000,     // 5 minutes
+			600_000,     // 10 minutes
+			1_800_000,   // 30 minutes
+			3_600_000,   // 1 hour
+			7_200_000,   // 2 hours
+			14_400_000,  // 4 hours
+			21_600_000,  // 6 hours
+			43_200_000,  // 12 hours
+		];
+
+		const fetchWithRetry = async (attempt = 0): Promise<any> => {
 			try {
 				const chart = await yahooFinance.chart(symbol, { period1, interval: '1d' })
 				const quote = await yahooFinance.quote(symbol)
 				return { chart, quote }
 			} catch (err: any) {
-				// Detect Yahoo rate limiting (429) - don't retry, propagate immediately
-				const isRateLimit = err?.code === 429 || err?.message?.includes('Too Many Requests');
-				if (isRateLimit) {
-					logger.warn({ symbol }, 'Yahoo rate limit hit, not retrying');
-					throw new YahooRateLimitError('Yahoo Finance rate limit exceeded. Please try again in a few minutes.');
+				// If we've exhausted all retries, give up
+				if (attempt >= RETRY_DELAYS_MS.length) {
+					logger.error({ symbol, attempts: attempt }, 'All retries exhausted');
+					throw err;
 				}
 
-				if (retries > 0) {
-					const waitTime = baseDelay * (3 - retries); // 1s, 2s exponential-ish backoff
-					logger.warn({ symbol, retriesLeft: retries, waitTime }, 'Retry fetching stock after delay');
-					await delay(waitTime);
-					return fetchWithRetry(retries - 1, baseDelay);
+				// Detect Yahoo rate limiting (429)
+				const isRateLimit = err?.code === 429 || err?.message?.includes('Too Many Requests');
+				const waitTime = RETRY_DELAYS_MS[attempt];
+				const waitLabel = waitTime >= 60_000 ? `${waitTime / 60_000}m` : `${waitTime / 1000}s`;
+
+				if (isRateLimit) {
+					logger.warn({ symbol, attempt: attempt + 1, waitLabel }, 'Yahoo rate limit hit, backing off');
+				} else {
+					logger.warn({ symbol, attempt: attempt + 1, waitLabel, err: err.message }, 'Fetch failed, retrying');
 				}
-				throw err;
+
+				await delay(waitTime);
+				return fetchWithRetry(attempt + 1);
 			}
 		}
 
@@ -480,8 +501,8 @@ app.post('/api/warmup', createLimiter(1, 60 * 1000, 'warmup'), async (c) => {
 			await getStockHistory(ticker, startDate);
 			results.push({ ticker, status: 'fetched' });
 
-			// Wait 2 seconds between fetches to be gentle on Yahoo
-			await delay(2000);
+			// Wait 5 seconds between fetches to be very gentle on Yahoo
+			await delay(5000);
 		} catch (err: any) {
 			logger.warn({ ticker, err: err.message }, 'Warmup failed for ticker');
 			results.push({ ticker, status: 'failed', error: err.message });
@@ -518,6 +539,120 @@ app.get('/api/cache-status/spy', createLimiter(60, 60 * 1000, 'cache-status'), a
 const port = config.PORT
 
 logger.info({ port, corsOrigins }, 'Server starting')
+
+// Automatic cache warmup - runs on startup and every 30 days
+const WARMUP_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+const WARMUP_START_DATE = '2015-01-01';
+const WARMUP_TICKER_GAP_MS = 60_000; // 1 minute between tickers
+
+// Same backoff schedule as regular fetches for rate limit handling during warmup
+const WARMUP_RETRY_DELAYS_MS = [
+	5_000,       // 5 seconds
+	30_000,      // 30 seconds
+	60_000,      // 1 minute
+	180_000,     // 3 minutes
+	300_000,     // 5 minutes
+	600_000,     // 10 minutes
+	1_800_000,   // 30 minutes
+	3_600_000,   // 1 hour
+	7_200_000,   // 2 hours
+	14_400_000,  // 4 hours
+	21_600_000,  // 6 hours
+	43_200_000,  // 12 hours
+];
+
+function formatDuration(ms: number): string {
+	if (ms >= 3_600_000) return `${ms / 3_600_000}h`;
+	if (ms >= 60_000) return `${ms / 60_000}m`;
+	return `${ms / 1000}s`;
+}
+
+interface TickerWithAge {
+	ticker: string;
+	cacheAge: number | null; // null = not cached, higher = older
+}
+
+async function runAutoWarmup() {
+	logger.info({ tickerCount: TOP_TICKERS.length }, 'Starting automatic cache warmup');
+
+	// Build list with cache ages and sort by oldest first (nulls = not cached = highest priority)
+	const tickersWithAge: TickerWithAge[] = await Promise.all(
+		TOP_TICKERS.map(async (ticker) => {
+			const cacheKey = `stock:${ticker}:${WARMUP_START_DATE}`;
+			const cacheAge = await stockCache.getCacheAge(cacheKey);
+			return { ticker, cacheAge };
+		})
+	);
+
+	// Sort: null (not cached) first, then by age descending (oldest first)
+	// Negative cacheAge means still fresh - put those last
+	tickersWithAge.sort((a, b) => {
+		if (a.cacheAge === null && b.cacheAge === null) return 0;
+		if (a.cacheAge === null) return -1; // a first (not cached)
+		if (b.cacheAge === null) return 1;  // b first (not cached)
+		return b.cacheAge - a.cacheAge;     // Higher age (older) first
+	});
+
+	logger.info(
+		{ order: tickersWithAge.slice(0, 5).map(t => `${t.ticker}:${t.cacheAge === null ? 'none' : formatDuration(t.cacheAge)}`) },
+		'Warmup priority order (top 5)'
+	);
+
+	let fetched = 0, failed = 0;
+	let retryAttempt = 0; // Tracks backoff level for rate limiting
+
+	for (const { ticker } of tickersWithAge) {
+		try {
+			await getStockHistory(ticker, WARMUP_START_DATE);
+			fetched++;
+			retryAttempt = 0; // Reset backoff on success
+
+			// 1 minute gap between successful fetches
+			logger.debug({ ticker, nextIn: '1m' }, 'Warmup fetched, waiting before next');
+			await delay(WARMUP_TICKER_GAP_MS);
+
+		} catch (err: any) {
+			const isRateLimit = err?.code === 429 ||
+				err?.message?.includes('Too Many Requests') ||
+				err instanceof YahooRateLimitError;
+
+			if (isRateLimit && retryAttempt < WARMUP_RETRY_DELAYS_MS.length) {
+				// Rate limited - back off and retry this ticker
+				const waitTime = WARMUP_RETRY_DELAYS_MS[retryAttempt];
+				logger.warn(
+					{ ticker, attempt: retryAttempt + 1, waitLabel: formatDuration(waitTime) },
+					'Rate limit during warmup, backing off'
+				);
+				retryAttempt++;
+				await delay(waitTime);
+
+				// Re-add this ticker to try again (push to front of remaining)
+				// We'll retry on next loop iteration by not incrementing
+				continue;
+			}
+
+			if (isRateLimit) {
+				// Exhausted all retries
+				logger.error({ ticker }, 'Warmup rate limit retries exhausted, stopping warmup');
+				failed++;
+				break;
+			}
+
+			// Non-rate-limit error - log and continue to next ticker
+			failed++;
+			logger.warn({ ticker, err: err.message }, 'Warmup failed for ticker (non-rate-limit)');
+			await delay(WARMUP_TICKER_GAP_MS); // Still wait before next
+		}
+	}
+
+	logger.info({ fetched, failed }, 'Automatic cache warmup complete');
+}
+
+// Schedule warmup: run after 30s delay on startup, then every 30 days
+setTimeout(() => {
+	runAutoWarmup();
+	setInterval(runAutoWarmup, WARMUP_INTERVAL_MS);
+}, 30000); // 30s delay to let server fully start
 
 serve({
 	fetch: app.fetch,
