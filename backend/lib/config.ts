@@ -10,6 +10,7 @@ const configSchema = z.object({
 	PORT: z.coerce.number().int().positive().default(3000),
 	REDIS_URL: z.string().url().optional(),
 	CORS_ORIGIN: z.string().min(1, 'CORS_ORIGIN must be set'),
+	ALPHA_VANTAGE_KEY: z.string().optional(), // Free tier: 25 req/day - used as SPY fallback
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -20,6 +21,7 @@ function loadConfig(): Config {
 		PORT: process.env.PORT,
 		REDIS_URL: process.env.REDIS_URL || undefined,
 		CORS_ORIGIN: process.env.CORS_ORIGIN,
+		ALPHA_VANTAGE_KEY: process.env.ALPHA_VANTAGE_KEY || undefined,
 	});
 
 	if (!result.success) {

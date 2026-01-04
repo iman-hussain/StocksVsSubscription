@@ -70,6 +70,7 @@ A cinematic, high-performance web application that visualizes the opportunity co
     *   `PORT`: Backend server port (default: 3000)
     *   `REDIS_URL`: Redis connection URL (optional, recommended for production)
     *   `CORS_ORIGIN`: Allowed frontend origins (comma-separated)
+    *   `ALPHA_VANTAGE_KEY`: Alpha Vantage API key for SPY fallback (optional, free tier: 25 req/day)
 
     **Frontend (`frontend/.env`):**
 
@@ -108,13 +109,14 @@ Production deployment is handled via **Coolify**, which automatically builds the
 
 **Quick Reference - Environment Variables:**
 
-| Service              | Variable       | Production Value                    |
-| -------------------- | -------------- | ----------------------------------- |
-| Backend              | `NODE_ENV`     | `production`                        |
-| Backend              | `PORT`         | `3000`                              |
-| Backend              | `REDIS_URL`    | `redis://your-redis:6379`           |
-| Backend              | `CORS_ORIGIN`  | `https://yourdomain.com`            |
-| Frontend (Build Arg) | `VITE_API_URL` | `https://api.yourdomain.com`        |
+| Service              | Variable           | Production Value                    |
+| -------------------- | ------------------ | ----------------------------------- |
+| Backend              | `NODE_ENV`         | `production`                        |
+| Backend              | `PORT`             | `3000`                              |
+| Backend              | `REDIS_URL`        | `redis://your-redis:6379`           |
+| Backend              | `CORS_ORIGIN`      | `https://yourdomain.com`            |
+| Backend              | `ALPHA_VANTAGE_KEY`| Your Alpha Vantage API key (optional)|
+| Frontend (Build Arg) | `VITE_API_URL`     | `https://api.yourdomain.com`        |
 
 ## 📂 Project Structure
 

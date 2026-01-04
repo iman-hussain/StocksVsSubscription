@@ -25,6 +25,17 @@ import { zValidator } from '@hono/zod-validator'
 // Instantiate yahoo-finance2 v3 client
 const yahooFinance = new YahooFinance();
 
+// Interface for stock data returned by getStockHistory and Alpha Vantage fallback
+interface CachedStockData {
+	symbol: string;
+	currency?: string;
+	regularMarketPrice?: number;
+	shortName?: string;
+	name?: string;
+	currentPrice?: number;
+	history: Array<{ date: string; adjClose: number }>;
+}
+
 // Top 30 tickers by usage in presets + market popularity + SPY index
 // These are pre-warmed on server startup and can be refreshed via /api/warmup
 const TOP_TICKERS = [
@@ -145,6 +156,96 @@ class YahooRateLimitError extends Error {
 // Helper to add delay for exponential backoff
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Distributed lock for warmup - prevents multiple workers from running simultaneously
+const WARMUP_LOCK_KEY = 'stock-app:warmup-lock';
+const WARMUP_LOCK_TTL = 60 * 60; // 1 hour max lock duration
+
+async function acquireWarmupLock(): Promise<boolean> {
+	const redis = stockCache.client;
+	if (!redis || redis.status !== 'ready') {
+		// No Redis = single instance, always allow
+		return true;
+	}
+	try {
+		// SET NX = only set if not exists, EX = expire after TTL
+		const result = await redis.set(WARMUP_LOCK_KEY, Date.now().toString(), 'EX', WARMUP_LOCK_TTL, 'NX');
+		return result === 'OK';
+	} catch {
+		return false;
+	}
+}
+
+async function releaseWarmupLock(): Promise<void> {
+	const redis = stockCache.client;
+	if (redis?.status === 'ready') {
+		try {
+			await redis.del(WARMUP_LOCK_KEY);
+		} catch {
+			// Ignore - lock will expire anyway
+		}
+	}
+}
+
+/**
+ * Fetch SPY data from Alpha Vantage as fallback when Yahoo is rate limited.
+ * Free tier: 25 requests/day, but we only need this for SPY.
+ */
+async function fetchSPYFromAlphaVantage(startDate: string): Promise<CachedStockData | null> {
+	if (!config.ALPHA_VANTAGE_KEY) {
+		logger.debug('No ALPHA_VANTAGE_KEY configured, skipping fallback');
+		return null;
+	}
+
+	try {
+		logger.info('Attempting SPY fetch from Alpha Vantage fallback');
+
+		// TIME_SERIES_DAILY_ADJUSTED gives us adjusted close prices
+		const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=SPY&outputsize=full&apikey=${config.ALPHA_VANTAGE_KEY}`;
+		const response = await fetch(url);
+		const data = await response.json() as any;
+
+		if (data['Error Message'] || data['Note']) {
+			// API error or rate limit
+			logger.warn({ error: data['Error Message'] || data['Note'] }, 'Alpha Vantage error');
+			return null;
+		}
+
+		const timeSeries = data['Time Series (Daily)'];
+		if (!timeSeries) {
+			logger.warn('No time series data from Alpha Vantage');
+			return null;
+		}
+
+		// Convert to our format and filter by start date
+		const history = Object.entries(timeSeries)
+			.map(([date, values]: [string, any]) => ({
+				date,
+				adjClose: parseFloat(values['5. adjusted close']) || 0
+			}))
+			.filter(h => h.date >= startDate && h.adjClose > 0)
+			.sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
+
+		if (history.length === 0) {
+			logger.warn('No valid history from Alpha Vantage');
+			return null;
+		}
+
+		const stockData: CachedStockData = {
+			symbol: 'SPY',
+			shortName: 'SPDR S&P 500 ETF Trust',
+			regularMarketPrice: history[history.length - 1].adjClose,
+			currency: 'USD',
+			history
+		};
+
+		logger.info({ historyLength: history.length }, 'SPY fetched from Alpha Vantage');
+		return stockData;
+	} catch (err: any) {
+		logger.warn({ err: err.message }, 'Alpha Vantage fetch failed');
+		return null;
+	}
+}
+
 /**
  * Reusable helper to fetch stock/currency data with Layer 1 Cache.
  * Includes Circuit Breaker: fallback to stale data if Yahoo fails.
@@ -233,6 +334,15 @@ async function getStockHistory(symbol: string, startDate?: string) {
 		return data
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Unknown error';
+
+		// SPY Fallback: Try Alpha Vantage if Yahoo fails for SPY
+		if (symbol.toUpperCase() === 'SPY') {
+			const alphaData = await fetchSPYFromAlphaVantage(startDate || '2015-01-01');
+			if (alphaData) {
+				await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
+				return alphaData;
+			}
+		}
 
 		// 2. Circuit Breaker Fallback
 		if (cached) {
@@ -573,7 +683,16 @@ interface TickerWithAge {
 }
 
 async function runAutoWarmup() {
+	// Acquire distributed lock to prevent multiple workers from running warmup
+	const hasLock = await acquireWarmupLock();
+	if (!hasLock) {
+		logger.info('Another worker is running warmup, skipping');
+		return;
+	}
+
 	logger.info({ tickerCount: TOP_TICKERS.length }, 'Starting automatic cache warmup');
+
+	try {
 
 	// Build list with cache ages and sort by oldest first (nulls = not cached = highest priority)
 	const tickersWithAge: TickerWithAge[] = await Promise.all(
@@ -646,13 +765,24 @@ async function runAutoWarmup() {
 	}
 
 	logger.info({ fetched, failed }, 'Automatic cache warmup complete');
+	} finally {
+		await releaseWarmupLock();
+	}
 }
 
-// Schedule warmup: run after 30s delay on startup, then every 30 days
+// Schedule warmup with random initial delay to prevent all workers/deploys hitting Yahoo simultaneously
+// Random delay between 3-10 days, then every 30 days after that
+const MIN_INITIAL_DELAY_MS = 3 * 24 * 60 * 60 * 1000;  // 3 days
+const MAX_INITIAL_DELAY_MS = 10 * 24 * 60 * 60 * 1000; // 10 days
+const randomInitialDelay = MIN_INITIAL_DELAY_MS + Math.random() * (MAX_INITIAL_DELAY_MS - MIN_INITIAL_DELAY_MS);
+const initialDelayDays = (randomInitialDelay / (24 * 60 * 60 * 1000)).toFixed(2);
+
+logger.info({ initialDelayDays: `${initialDelayDays} days` }, 'Scheduling first cache warmup');
+
 setTimeout(() => {
 	runAutoWarmup();
 	setInterval(runAutoWarmup, WARMUP_INTERVAL_MS);
-}, 30000); // 30s delay to let server fully start
+}, randomInitialDelay);
 
 serve({
 	fetch: app.fetch,
