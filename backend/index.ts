@@ -290,7 +290,7 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 	const fallbackIndices = ['SPY', '^IXIC', 'FTSE-ALLCAP'];
 	const normalizedSymbol = symbol.toUpperCase();
 	const isFallbackIndex = fallbackIndices.some(idx => idx.toUpperCase() === normalizedSymbol);
-	
+
 	if (isFallbackIndex && config.ALPHA_VANTAGE_KEY) {
 		const alphaData = await fetchIndexFromAlphaVantage(symbol, startDate || '2003-01-01');
 		if (alphaData) {
@@ -472,7 +472,7 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 
 		// Detect index fallback mode (all items use a single fallback index)
 		const fallbackIndexTickers = ['SPY', '^IXIC', 'FTSE-ALLCAP'];
-		const isIndexFallbackMode = uniqueTickers.length === 1 && 
+		const isIndexFallbackMode = uniqueTickers.length === 1 &&
 			fallbackIndexTickers.some(idx => idx.toUpperCase() === uniqueTickers[0].toUpperCase());
 
 		// Calculate earliest date
