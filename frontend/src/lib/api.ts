@@ -48,17 +48,45 @@ export interface SimulationAPIResponse {
 	itemResults: Record<string, SimulationResult>;
 }
 
-export async function simulateBasket(basket: SpendItem[], userCurrency: string): Promise<SimulationAPIResponse> {
+export async function simulateBasket(
+	basket: SpendItem[],
+	userCurrency: string,
+	signal?: AbortSignal
+): Promise<SimulationAPIResponse> {
 	const apiBase = (import.meta as any).env?.VITE_API_URL || '';
 	const res = await fetch(`${apiBase}/api/simulate`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ basket, userCurrency }),
+		signal,
 	});
 
 	if (!res.ok) {
-		const errorData = await res.json().catch(() => ({}));
-		throw new Error(errorData.error || `Simulation failed (${res.status})`);
+		let errorMessage = `Simulation failed (${res.status})`;
+
+		// Handle specific HTTP status codes with user-friendly messages
+		if (res.status === 429) {
+			errorMessage = 'Too many requests. Please wait a moment and try again.';
+		} else if (res.status === 400) {
+			errorMessage = 'Invalid request data. Please check your items and try again.';
+		} else if (res.status >= 500) {
+			errorMessage = 'Server error. Our data provider may be temporarily unavailable.';
+		}
+
+		// Try to get more details from the response body
+		try {
+			const errorData = await res.json();
+			if (errorData.error) {
+				errorMessage = errorData.error;
+			}
+			if (errorData.details) {
+				errorMessage += ` (${errorData.details})`;
+			}
+		} catch {
+			// Response body wasn't JSON, use the default message
+		}
+
+		throw new Error(errorMessage);
 	}
 
 	return res.json();
