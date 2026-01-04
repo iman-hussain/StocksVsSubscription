@@ -349,21 +349,23 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 				className={`${isDesktopSplit ? 'h-full' : 'h-dvh'} flex flex-col items-center justify-center p-8 text-center gap-6`}
 			>
 				<div className="w-24 h-24 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-2">
-					<span className="text-4xl">⚠️</span>
+					<span className="text-4xl">{isRateLimit ? '⏳' : '⚠️'}</span>
 				</div>
 				<div className="max-w-md">
 					<h3 className="text-xl font-bold text-white mb-2">
-						{isRateLimit ? 'Slow Down!' : 'Something Went Wrong'}
+						{isRateLimit ? 'Data Provider Busy' : 'Something Went Wrong'}
 					</h3>
-					<p className="text-gray-400 text-sm leading-relaxed mb-2">
+					<p className="text-gray-400 text-sm leading-relaxed mb-4">
 						{isRateLimit
-							? 'You\'re making requests too quickly. Please wait a moment and try again.'
+							? 'Our stock data provider is temporarily rate-limiting requests. This usually resolves within 1-2 hours. Please try again later!'
 							: 'We couldn\'t crunch your numbers. This could be a temporary issue with our data provider.'
 						}
 					</p>
-					<p className="text-red-400/80 text-xs font-mono bg-red-500/5 rounded-lg px-3 py-2">
-						{error}
-					</p>
+					{!isRateLimit && (
+						<p className="text-red-400/80 text-xs font-mono bg-red-500/5 rounded-lg px-3 py-2 mb-4">
+							{error}
+						</p>
+					)}
 				</div>
 				<button
 					onClick={onBack}
