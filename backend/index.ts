@@ -8,6 +8,7 @@ import { config } from './lib/config.js'
 import { cache as stockCache } from './lib/cache.js'
 import { resolveTicker } from './lib/resolve.js'
 import { SUBSCRIPTION_TICKERS, PRODUCT_DATABASE, HABIT_PRESETS } from './data/presets.js'
+import { getStaticSPYData } from './data/spy-fallback.js'
 import { logger } from './lib/logger.js'
 import {
 	calculateMultiStockComparison,
@@ -197,7 +198,7 @@ async function fetchSPYFromAlphaVantage(startDate: string): Promise<CachedStockD
 	}
 
 	try {
-		logger.info('Attempting SPY fetch from Alpha Vantage fallback');
+		logger.info({ keyConfigured: !!config.ALPHA_VANTAGE_KEY, keyLength: config.ALPHA_VANTAGE_KEY?.length }, 'Attempting SPY fetch from Alpha Vantage fallback');
 
 		// TIME_SERIES_DAILY_ADJUSTED gives us adjusted close prices
 		const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED&symbol=SPY&outputsize=full&apikey=${config.ALPHA_VANTAGE_KEY}`;
@@ -205,14 +206,22 @@ async function fetchSPYFromAlphaVantage(startDate: string): Promise<CachedStockD
 		const data = await response.json() as any;
 
 		if (data['Error Message'] || data['Note']) {
-			// API error or rate limit
-			logger.warn({ error: data['Error Message'] || data['Note'] }, 'Alpha Vantage error');
+			// API error or rate limit (Note = rate limit message)
+			logger.warn({ error: data['Error Message'] || data['Note'], info: data['Information'] }, 'Alpha Vantage error or rate limit');
+			return null;
+		}
+
+		// Check for Information key (usually means invalid API key)
+		if (data['Information']) {
+			logger.warn({ info: data['Information'] }, 'Alpha Vantage API key issue');
 			return null;
 		}
 
 		const timeSeries = data['Time Series (Daily)'];
 		if (!timeSeries) {
-			logger.warn('No time series data from Alpha Vantage');
+			// Log the full response for debugging (truncate if huge)
+			const responsePreview = JSON.stringify(data).slice(0, 500);
+			logger.warn({ responseKeys: Object.keys(data), responsePreview }, 'No time series data from Alpha Vantage');
 			return null;
 		}
 
@@ -252,8 +261,9 @@ async function fetchSPYFromAlphaVantage(startDate: string): Promise<CachedStockD
  *
  * @param maxRetries - Limit retries for user-facing requests (default: 3 = ~35s wait max).
  *                     Set higher for background warmup tasks.
+ * @param skipYahoo - If true, skip Yahoo entirely (for SPY fallback mode - cache/Alpha Vantage only).
  */
-async function getStockHistory(symbol: string, startDate?: string, maxRetries: number = 3) {
+async function getStockHistory(symbol: string, startDate?: string, maxRetries: number = 3, skipYahoo: boolean = false) {
 	const cacheKey = `stock:${symbol.toUpperCase()}:${startDate || 'default'}`
 
 	// 1. Check Cache
@@ -271,6 +281,25 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 			await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
 			return alphaData;
 		}
+	}
+
+	// If skipYahoo is true (SPY fallback mode), don't try Yahoo at all
+	// Priority: stale cache -> static data -> fail
+	if (skipYahoo) {
+		if (cached) {
+			logger.info({ symbol }, 'SPY fallback mode: serving stale cache');
+			return cached.data;
+		}
+		// For SPY specifically, use static fallback data as last resort
+		if (symbol.toUpperCase() === 'SPY') {
+			logger.info('SPY fallback mode: using static historical data');
+			const staticData = getStaticSPYData(startDate || '2015-01-01');
+			// Cache the static data so subsequent requests are faster
+			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
+			return staticData;
+		}
+		logger.warn({ symbol }, 'SPY fallback mode: no cache available for non-SPY ticker');
+		throw new YahooRateLimitError('Stock data temporarily unavailable. Please try again later.');
 	}
 
 	// Stale or Miss - Try Fetching
@@ -415,6 +444,9 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 		const uniqueTickers = [...new Set(basket.map(item => item.ticker))]
 		const userBaseCurrency = userCurrency || 'GBP'
 
+		// Detect SPY-only fallback mode (all items have SPY ticker)
+		const isSPYFallbackMode = uniqueTickers.length === 1 && uniqueTickers[0].toUpperCase() === 'SPY';
+
 		// Calculate earliest date
 		const earliestDate = basket.reduce((min, item) =>
 			item.startDate < min ? item.startDate : min,
@@ -423,9 +455,10 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 
 		// Fetch stock histories sequentially to avoid bursting Yahoo's rate limit on cache misses
 		// L1 cache hits return instantly, so this only adds latency for uncached tickers
+		// In SPY fallback mode, skip Yahoo entirely (cache/Alpha Vantage only)
 		const stockDataResults = [];
 		for (const ticker of uniqueTickers) {
-			const data = await getStockHistory(ticker, earliestDate);
+			const data = await getStockHistory(ticker, earliestDate, 3, isSPYFallbackMode);
 			stockDataResults.push(data);
 		}
 
