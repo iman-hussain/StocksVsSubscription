@@ -293,18 +293,34 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 	};
 
 	useEffect(() => {
+		// AbortController to cancel pending requests on cleanup or re-render
+		const abortController = new AbortController();
+		let isCancelled = false;
+
 		const fetchAndCalculate = async () => {
 			setLoading(true);
 			setError('');
 
 			try {
-				const { result, itemResults } = await simulateBasket(basket, currency || 'GBP');
-				setResult(result);
-				setItemResults(itemResults);
+				const { result, itemResults } = await simulateBasket(basket, currency || 'GBP', abortController.signal);
+
+				// Prevent setting state if the effect was cleaned up
+				if (!isCancelled) {
+					setResult(result);
+					setItemResults(itemResults);
+				}
 			} catch (err: unknown) {
-				setError(err instanceof Error ? err.message : 'Simulation failed');
+				// Ignore abort errors - they're expected during cleanup
+				if (err instanceof Error && err.name === 'AbortError') {
+					return;
+				}
+				if (!isCancelled) {
+					setError(err instanceof Error ? err.message : 'Simulation failed');
+				}
 			} finally {
-				setLoading(false);
+				if (!isCancelled) {
+					setLoading(false);
+				}
 			}
 		};
 
@@ -315,9 +331,53 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			setItemResults({});
 			setLoading(false);
 		}
+
+		// Cleanup: Cancel pending request and mark as cancelled
+		return () => {
+			isCancelled = true;
+			abortController.abort();
+		};
 	}, [basket, currency]);
 
-	if (loading && !result) {
+	// Error State - Displayed FIRST to prevent masking errors with empty state
+	if (error) {
+		const isRateLimit = error.toLowerCase().includes('too many') || error.toLowerCase().includes('429') || error.toLowerCase().includes('rate');
+		return (
+			<motion.div
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				className={`${isDesktopSplit ? 'h-full' : 'h-dvh'} flex flex-col items-center justify-center p-8 text-center gap-6`}
+			>
+				<div className="w-24 h-24 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-2">
+					<span className="text-4xl">⚠️</span>
+				</div>
+				<div className="max-w-md">
+					<h3 className="text-xl font-bold text-white mb-2">
+						{isRateLimit ? 'Slow Down!' : 'Something Went Wrong'}
+					</h3>
+					<p className="text-gray-400 text-sm leading-relaxed mb-2">
+						{isRateLimit
+							? 'You\'re making requests too quickly. Please wait a moment and try again.'
+							: 'We couldn\'t crunch your numbers. This could be a temporary issue with our data provider.'
+						}
+					</p>
+					<p className="text-red-400/80 text-xs font-mono bg-red-500/5 rounded-lg px-3 py-2">
+						{error}
+					</p>
+				</div>
+				<button
+					onClick={onBack}
+					className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-gray-400 hover:text-white transition-all duration-300"
+				>
+					<ChevronLeft size={16} className="text-brand-neon" />
+					<span className="font-bold">Go Back</span>
+				</button>
+			</motion.div>
+		);
+	}
+
+	// Loading State
+	if (loading) {
 		return (
 			<motion.div
 				initial={{ opacity: 0 }}
@@ -338,8 +398,8 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 		);
 	}
 
-	// Empty State (No items in basket)
-	if (!loading && !result) {
+	// Empty State (No items in basket) - Only show when basket is truly empty AND no error
+	if (!result) {
 		return (
 			<motion.div
 				initial={{ opacity: 0 }}
@@ -360,21 +420,6 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 						<ChevronLeft size={16} className="text-brand-neon" /> Build Stack
 					</button>
 				)}
-			</motion.div>
-		);
-	}
-
-	if (error) {
-		return (
-			<motion.div
-				initial={{ opacity: 0 }}
-				animate={{ opacity: 1 }}
-				className={`${isDesktopSplit ? 'h-full' : 'h-dvh'} flex flex-col items-center justify-center text-red-500 gap-4`}
-			>
-				<div>Error: {error}</div>
-				<button onClick={onBack} className="text-gray-400 hover:text-white flex items-center gap-2">
-					<ChevronLeft size={20} /> Go Back
-				</button>
 			</motion.div>
 		);
 	}
