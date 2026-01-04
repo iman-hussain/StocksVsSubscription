@@ -117,6 +117,17 @@ const CACHE_DURATION_SECONDS = 60 * 60 * 24 * 30; // 30 days freshness (as reque
 // Hard limit managed by cache.ts defaults (60 days) or override
 const RESOLVE_CACHE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
+// Custom error class to propagate Yahoo rate limits to the client
+class YahooRateLimitError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'YahooRateLimitError';
+	}
+}
+
+// Helper to add delay for exponential backoff
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Reusable helper to fetch stock/currency data with Layer 1 Cache.
  * Includes Circuit Breaker: fallback to stale data if Yahoo fails.
@@ -137,18 +148,27 @@ async function getStockHistory(symbol: string, startDate?: string) {
 		logger.info({ symbol, status: cached ? 'stale' : 'miss' }, 'Fetching stock data from Yahoo')
 		const period1 = startDate || '1970-01-01'
 
-		// Add timeout and retry logic for safety on low-resource server
-		const fetchWithRetry = async (retries = 2): Promise<any> => {
+		// Retry with exponential backoff to avoid hammering Yahoo when rate-limited
+		const fetchWithRetry = async (retries = 2, baseDelay = 1000): Promise<any> => {
 			try {
 				const chart = await yahooFinance.chart(symbol, { period1, interval: '1d' })
 				const quote = await yahooFinance.quote(symbol)
 				return { chart, quote }
-			} catch (err) {
-				if (retries > 0) {
-					logger.warn({ symbol, retriesLeft: retries }, 'Retry fetching stock')
-					return fetchWithRetry(retries - 1)
+			} catch (err: any) {
+				// Detect Yahoo rate limiting (429) - don't retry, propagate immediately
+				const isRateLimit = err?.code === 429 || err?.message?.includes('Too Many Requests');
+				if (isRateLimit) {
+					logger.warn({ symbol }, 'Yahoo rate limit hit, not retrying');
+					throw new YahooRateLimitError('Yahoo Finance rate limit exceeded. Please try again in a few minutes.');
 				}
-				throw err
+
+				if (retries > 0) {
+					const waitTime = baseDelay * (3 - retries); // 1s, 2s exponential-ish backoff
+					logger.warn({ symbol, retriesLeft: retries, waitTime }, 'Retry fetching stock after delay');
+					await delay(waitTime);
+					return fetchWithRetry(retries - 1, baseDelay);
+				}
+				throw err;
 			}
 		}
 
@@ -244,9 +264,13 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 			new Date().toISOString().split('T')[0]
 		)
 
-		// Fetch all required histories (hitting L1 cache)
-		const stockDataPromises = uniqueTickers.map(ticker => getStockHistory(ticker, earliestDate))
-		const stockDataResults = await Promise.all(stockDataPromises)
+		// Fetch stock histories sequentially to avoid bursting Yahoo's rate limit on cache misses
+		// L1 cache hits return instantly, so this only adds latency for uncached tickers
+		const stockDataResults = [];
+		for (const ticker of uniqueTickers) {
+			const data = await getStockHistory(ticker, earliestDate);
+			stockDataResults.push(data);
+		}
 
 		const currencyPairs = new Set<string>()
 		for (const item of basket) {
@@ -262,8 +286,12 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 			}
 		}
 
-		const currencyPromises = Array.from(currencyPairs).map(pair => getStockHistory(pair, earliestDate))
-		const currencyResults = await Promise.all(currencyPromises)
+		// Fetch currency pairs sequentially to avoid rate limits
+		const currencyResults = [];
+		for (const pair of Array.from(currencyPairs)) {
+			const data = await getStockHistory(pair, earliestDate);
+			currencyResults.push(data);
+		}
 
 		const currencyDataMap: Record<string, StockDataPoint[]> = {}
 		for (const res of currencyResults) {
@@ -317,6 +345,12 @@ app.post('/api/simulate', createLimiter(20, 60 * 1000, 'simulate'), zValidator('
 		return c.json(finalData)
 	} catch (err: unknown) {
 		logger.error({ err }, 'Simulation failed')
+
+		// Propagate Yahoo rate limit as 429 to the client
+		if (err instanceof YahooRateLimitError) {
+			return c.json({ error: 'Rate Limited', details: err.message }, 429);
+		}
+
 		return c.json({ error: 'Simulation failed', details: err instanceof Error ? err.message : 'Unknown error' }, 500)
 	}
 })
