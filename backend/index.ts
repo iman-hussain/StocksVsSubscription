@@ -9,9 +9,15 @@ import { config } from './lib/config.js'
 import { cache as stockCache } from './lib/cache.js'
 import { resolveTicker } from './lib/resolve.js'
 import { SUBSCRIPTION_TICKERS, PRODUCT_DATABASE, HABIT_PRESETS } from './data/presets.js'
-import { getStaticSPYData } from './data/spy-fallback.js'
-import { getStaticNASDAQData } from './data/nasdaq-fallback.js'
-import { getStaticFTSE100Data } from './data/ftse100-fallback.js'
+import {
+	SPY_STATIC_DATA,
+	NASDAQ_STATIC_DATA,
+	FTSE100_STATIC_DATA,
+	ALL_TOP_100_TICKERS,
+	getTop100TickerData,
+	convertTop100ToHistory,
+	getStaticFallbackData
+} from './data/ticker-fallback.js'
 import { logger } from './lib/logger.js'
 import {
 	calculateMultiStockComparison,
@@ -273,12 +279,46 @@ async function fetchIndexFromAlphaVantage(symbol: string, startDate: string): Pr
 }
 
 /**
+ * Fetch data from Top 100 cached tickers as a fallback when Yahoo is rate-limited.
+ * Extremely fast (<1ms) since data is pre-loaded in memory.
+ */
+async function fetchFromTop100Tickers(symbol: string, startDate: string): Promise<CachedStockData | null> {
+	try {
+		const tickerData = getTop100TickerData(symbol);
+		if (!tickerData) {
+			return null;
+		}
+
+		// Convert columnar format to history array
+		const history = convertTop100ToHistory(tickerData)
+			.filter(h => h.date >= startDate && h.adjClose > 0)
+			.sort((a, b) => a.date.localeCompare(b.date));
+
+		if (history.length === 0) {
+			return null;
+		}
+
+		logger.info({ symbol, historyLength: history.length }, 'Fetched from Top 100 tickers (rate-limit fallback)');
+		return {
+			symbol,
+			shortName: tickerData.name,
+			regularMarketPrice: history[history.length - 1].adjClose,
+			currency: tickerData.currency,
+			history
+		};
+	} catch (err: any) {
+		logger.warn({ symbol, err: err.message }, 'Top 100 tickers fetch failed');
+		return null;
+	}
+}
+
+/**
  * Reusable helper to fetch stock/currency data with Layer 1 Cache.
  * Includes Circuit Breaker: fallback to stale data if Yahoo fails.
  *
  * @param maxRetries - Limit retries for user-facing requests (default: 0 = fail fast on rate limit).
  *                     Set higher for background warmup tasks.
- * @param skipYahoo - If true, skip Yahoo entirely (for index fallback mode - cache/Alpha Vantage only).
+ * @param skipYahoo - If true, skip Yahoo entirely (for index fallback mode - cache/static data only).
  */
 async function getStockHistory(symbol: string, startDate?: string, maxRetries: number = 0, skipYahoo: boolean = false) {
 	const cacheKey = `stock:${symbol.toUpperCase()}:${startDate || 'default'}`
@@ -291,19 +331,10 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 		return cached.data
 	}
 
-	// For fallback indices: Try Alpha Vantage first if Yahoo is likely rate-limited (stale cache or miss)
-	// BUT skip Alpha Vantage entirely in index fallback mode (user explicitly chose index)
+	// Determine if this is a fallback index (SPY/NASDAQ/FTSE)
 	const fallbackIndices = ['SPY', '^IXIC', '^FTSE'];
 	const normalizedSymbol = symbol.toUpperCase();
 	const isFallbackIndex = fallbackIndices.some(idx => idx.toUpperCase() === normalizedSymbol);
-
-	if (isFallbackIndex && config.ALPHA_VANTAGE_KEY && !skipYahoo) {
-		const alphaData = await fetchIndexFromAlphaVantage(symbol, startDate || '2003-01-01');
-		if (alphaData) {
-			await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
-			return alphaData;
-		}
-	}
 
 	// If skipYahoo is true (index fallback mode), don't try Yahoo at all
 	// Priority: stale cache -> static data -> fail
@@ -316,17 +347,20 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 		const normalizedSymbol = symbol.toUpperCase();
 		if (normalizedSymbol === 'SPY') {
 			logger.info('Index fallback mode: using static SPY data');
-			const staticData = getStaticSPYData(startDate || '1927-01-03');
+			const filteredData = SPY_STATIC_DATA.history.filter((h: StockDataPoint) => h.date >= (startDate || '1927-01-03')).sort((a: StockDataPoint, b: StockDataPoint) => a.date.localeCompare(b.date));
+			const staticData = { ...SPY_STATIC_DATA, history: filteredData };
 			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
 			return staticData;
 		} else if (normalizedSymbol === '^IXIC') {
 			logger.info('Index fallback mode: using static NASDAQ data');
-			const staticData = getStaticNASDAQData(startDate || '1971-02-05');
+			const filteredData = NASDAQ_STATIC_DATA.history.filter((h: StockDataPoint) => h.date >= (startDate || '1971-02-05')).sort((a: StockDataPoint, b: StockDataPoint) => a.date.localeCompare(b.date));
+			const staticData = { ...NASDAQ_STATIC_DATA, history: filteredData };
 			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
 			return staticData;
 		} else if (normalizedSymbol === '^FTSE') {
 			logger.info('Index fallback mode: using static FTSE 100 data');
-			const staticData = getStaticFTSE100Data(startDate || '1984-01-03');
+			const filteredData = FTSE100_STATIC_DATA.history.filter((h: StockDataPoint) => h.date >= (startDate || '1984-01-03')).sort((a: StockDataPoint, b: StockDataPoint) => a.date.localeCompare(b.date));
+			const staticData = { ...FTSE100_STATIC_DATA, history: filteredData };
 			await stockCache.set(cacheKey, staticData, CACHE_DURATION_SECONDS);
 			return staticData;
 		}
@@ -339,9 +373,12 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 		logger.info({ symbol, status: cached ? 'stale' : 'miss' }, 'Fetching stock data from Yahoo')
 		const period1 = startDate || '1970-01-01'
 
-		// Exponential backoff delays - user-facing requests limited by maxRetries param
+		// Exponential backoff delays - reduced for faster fallback on rate limits
+		// NOTE: Rate limit (429) errors don't benefit from retries—we fail fast and use circuit breaker
 		const RETRY_DELAYS_MS = [
-			5_000,       // 5 seconds
+			1_000,       // 1 second (transient errors only)
+			3_000,       // 3 seconds (transient errors only)
+			10_000,      // 10 seconds (for background tasks)
 			30_000,      // 30 seconds
 			60_000,      // 1 minute
 			180_000,     // 3 minutes
@@ -349,10 +386,6 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 			600_000,     // 10 minutes
 			1_800_000,   // 30 minutes
 			3_600_000,   // 1 hour
-			7_200_000,   // 2 hours
-			14_400_000,  // 4 hours
-			21_600_000,  // 6 hours
-			43_200_000,  // 12 hours
 		];
 
 		const effectiveMaxRetries = Math.min(maxRetries, RETRY_DELAYS_MS.length);
@@ -366,12 +399,15 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 				// Detect Yahoo rate limiting (429)
 				const isRateLimit = err?.code === 429 || err?.message?.includes('Too Many Requests');
 
-				// If we've hit max retries, fail fast with appropriate error
+				// Rate limit errors: Don't retry—fall back to cached/static data immediately
+				// Rate limiting indicates API quota exhausted; waiting won't help
+				if (isRateLimit) {
+					logger.warn({ symbol, attempt }, 'Yahoo rate limit hit, failing immediately (no retry)');
+					throw new YahooRateLimitError('Yahoo Finance rate limit exceeded. Please try again later.');
+				}
+
+				// Transient errors: Retry with backoff
 				if (attempt >= effectiveMaxRetries) {
-					if (isRateLimit) {
-						logger.warn({ symbol, attempts: attempt }, 'Max retries reached (rate limited), failing fast');
-						throw new YahooRateLimitError('Yahoo Finance rate limit exceeded. Please try again later.');
-					}
 					logger.error({ symbol, attempts: attempt }, 'All retries exhausted');
 					throw err;
 				}
@@ -379,11 +415,7 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 				const waitTime = RETRY_DELAYS_MS[attempt];
 				const waitLabel = waitTime >= 60_000 ? `${waitTime / 60_000}m` : `${waitTime / 1000}s`;
 
-				if (isRateLimit) {
-					logger.warn({ symbol, attempt: attempt + 1, waitLabel }, 'Yahoo rate limit hit, backing off');
-				} else {
-					logger.warn({ symbol, attempt: attempt + 1, waitLabel, err: err.message }, 'Fetch failed, retrying');
-				}
+				logger.warn({ symbol, attempt: attempt + 1, waitLabel, err: err.message }, 'Fetch failed (transient), retrying');
 
 				await delay(waitTime);
 				return fetchWithRetry(attempt + 1);
@@ -414,24 +446,47 @@ async function getStockHistory(symbol: string, startDate?: string, maxRetries: n
 	} catch (err) {
 		const message = err instanceof Error ? err.message : 'Unknown error';
 
-		// Try Alpha Vantage fallback for indices if Yahoo failed and we haven't tried it yet
-		if (isFallbackIndex && config.ALPHA_VANTAGE_KEY && !skipYahoo) {
-			logger.info({ symbol }, 'Yahoo failed, attempting Alpha Vantage fallback');
-			const alphaData = await fetchIndexFromAlphaVantage(symbol, startDate || '2003-01-01');
-			if (alphaData) {
-				await stockCache.set(cacheKey, alphaData, CACHE_DURATION_SECONDS);
-				return alphaData;
-			}
+		// Fallback Chain on Yahoo Failure:
+		// 1. Check stale cache
+		// 2. Check ticker-fallback.ts data
+		// 3. If both exist → use whichever is newer
+		// 4. If ticker not in fallback → use best proxy index (SPY/NASDAQ/FTSE)
+		// 5. Throw error
+
+		const staleData = cached?.data;
+		const fallbackData = await fetchFromTop100Tickers(symbol, startDate || '1900-01-01');
+
+		let selectedData: CachedStockData | null = null;
+
+		// Strategy: Use whichever has newer data
+		if (staleData && fallbackData) {
+			const staleLatestDate = staleData.history[staleData.history.length - 1]?.date;
+			const fallbackLatestDate = fallbackData.history[fallbackData.history.length - 1]?.date;
+			selectedData = (fallbackLatestDate && staleLatestDate && fallbackLatestDate > staleLatestDate) ? fallbackData : staleData;
+			logger.info({ symbol, source: selectedData === fallbackData ? 'fallback' : 'stale', staleLatestDate, fallbackLatestDate }, 'Using newer data source');
+		} else if (fallbackData) {
+			selectedData = fallbackData;
+			logger.info({ symbol }, 'Using ticker-fallback data');
+		} else if (staleData) {
+			selectedData = staleData;
+			logger.warn({ symbol }, 'Using stale cache (no fallback data available)');
 		}
 
-		// Circuit Breaker Fallback - serve stale data if available (even after Alpha Vantage failure)
-		if (cached) {
-			logger.warn({ symbol, err: message }, 'Circuit Breaker: serving STALE data after all providers failed')
-			return cached.data;
+		// If we found data, cache and return it
+		if (selectedData) {
+			await stockCache.set(cacheKey, selectedData, CACHE_DURATION_SECONDS);
+			return selectedData;
 		}
 
-		logger.error({ symbol, err: message }, 'Error fetching stock data')
-		throw err
+		// No cached or fallback data - use proxy index as last resort
+		// SPY is the best general proxy (S&P 500 = broadest US market)
+		logger.info({ symbol }, 'Ticker not in fallback data, using SPY proxy index');
+		const filteredData = SPY_STATIC_DATA.history
+			.filter((h: StockDataPoint) => h.date >= (startDate || '1927-01-03'))
+			.sort((a: StockDataPoint, b: StockDataPoint) => a.date.localeCompare(b.date));
+		const proxyData = { ...SPY_STATIC_DATA, history: filteredData };
+		await stockCache.set(cacheKey, proxyData, CACHE_DURATION_SECONDS);
+		return proxyData;
 	}
 }
 
