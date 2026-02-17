@@ -318,9 +318,9 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			setShowFallbackOption(false);
 
 			try {
-// If fallback index is chosen, override all tickers to that index
-			const effectiveBasket = fallbackIndex
-				? basket.map(item => ({ ...item, ticker: fallbackIndex }))
+				// If fallback index is chosen, override all tickers to that index
+				const effectiveBasket = fallbackIndex
+					? basket.map(item => ({ ...item, ticker: fallbackIndex }))
 					: basket;
 
 				const { result, itemResults } = await simulateBasket(effectiveBasket, currency || 'GBP', abortController.signal);
@@ -360,7 +360,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 			isCancelled = true;
 			abortController.abort();
 		};
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [basket, currency, fallbackIndex]);
 
 	// Reset fallback index when basket changes (user edited items)
@@ -368,7 +368,7 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 		if (fallbackIndex) {
 			setFallbackIndex(null);
 		}
-	// eslint-disable-next-line react-hooks/exhaustive-deps
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [basket]);
 
 	// Show fallback option after 10 seconds of loading
@@ -442,10 +442,10 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 									<span className="font-bold">NASDAQ Composite (^IXIC)</span>
 								</button>
 								<button
-								onClick={() => handleUseFallbackIndex('^FTSE')}
-								className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
-							>
-								<span className="font-bold">FTSE 100 (^FTSE)</span>
+									onClick={() => handleUseFallbackIndex('^FTSE')}
+									className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-neon/10 hover:bg-brand-neon/20 border border-brand-neon/30 text-sm text-brand-neon hover:text-white transition-all duration-300"
+								>
+									<span className="font-bold">FTSE 100 (^FTSE)</span>
 								</button>
 							</div>
 						</div>
@@ -808,6 +808,57 @@ export const RevealSlide = ({ onBack, isDesktopSplit = false }: Props) => {
 						</button>
 					</div>
 				</div>
+			</motion.div>
+
+			{/* Investment Advice Notice - New Section */}
+			<motion.div
+				initial={{ opacity: 0, y: 20 }}
+				whileInView={{ opacity: 1, y: 0 }}
+				viewport={{ once: true }}
+				transition={{ duration: 0.6 }}
+				className="w-full flex flex-col items-center text-center mt-12 mb-8 md:mb-12 border-t border-white/10 pt-12"
+			>
+				{(() => {
+					// Calculate years ago
+					const startDateStr = result?.graphData[0]?.date;
+					if (!startDateStr) return null;
+
+					const startDate = new Date(startDateStr);
+					const now = new Date();
+					const diffTime = Math.abs(now.getTime() - startDate.getTime());
+					const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365.25));
+
+					// Should likely be at least 1 year to make sense, but handle 0 case too
+					const yearsText = diffYears > 0 ? `${diffYears} YEAR${diffYears !== 1 ? 'S' : ''} AGO` : 'A WHILE AGO';
+
+					return (
+						<>
+							<h2 className="font-bold leading-tight mb-8 w-full mx-auto" style={{ fontSize: 'clamp(1.2rem, 3vw, 2rem)' }}>
+								<span className="text-gray-300">THE BEST TIME TO INVEST WAS </span>
+								<span className="text-brand-neon">{yearsText}</span>
+								<span className="text-gray-300">. THE SECOND BEST TIME IS </span>
+								<span className="text-brand-neon">RIGHT NOW</span>
+								<span className="text-gray-300">.</span>
+							</h2>
+
+							<a
+								href="https://www.trading212.com/invite/FzKe11pU"
+								target="_blank"
+								rel="noopener noreferrer"
+								className="group relative inline-flex items-center gap-3 px-8 py-4 bg-brand-neon text-brand-dark rounded-full font-bold text-lg hover:bg-white transition-all transform hover:scale-105 hover:shadow-[0_0_20px_rgba(0,244,162,0.4)]"
+							>
+								<span>Start your investment journey with Trading212 & get free shares</span>
+								<ChevronLeft className="rotate-180 group-hover:translate-x-1 transition-transform" size={20} />
+							</a>
+
+							<div className="mt-8 max-w-4xl text-[10px] text-gray-500 leading-relaxed">
+								<p className="mb-2">
+									<span className="font-bold text-brand-neon/70">AFFILIATE DISCLOSURE:</span> By using the link above, we both receive a free share at no extra cost to you.
+								</p>
+							</div>
+						</>
+					);
+				})()}
 			</motion.div>
 
 			{/* Individual Item Charts Grid */}
