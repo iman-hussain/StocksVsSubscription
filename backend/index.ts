@@ -19,6 +19,7 @@ import {
 	getStaticFallbackData
 } from './data/ticker-fallback.js'
 import { logger } from './lib/logger.js'
+import { scheduleRecurringWarmup, setLastWarmupTime } from './lib/scheduler.js'
 import {
 	calculateMultiStockComparison,
 	calculateIndividualComparison,
@@ -791,8 +792,11 @@ const port = config.PORT
 
 logger.info({ port, corsOrigins }, 'Server starting')
 
-// Automatic cache warmup - runs on startup and every 30 days
-const WARMUP_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+// Automatic cache warmup - runs after a random initial delay, then every 30 days
+// NOTE: 30 days in ms (2,592,000,000) exceeds the 32-bit timer ceiling (2^31-1).
+// This value is never passed directly to setTimeout/setInterval; the scheduler
+// module handles it safely via a 24-hour periodic check.
+const WARMUP_TARGET_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
 const WARMUP_START_DATE = '2015-01-01';
 const WARMUP_TICKER_GAP_MS = 60_000; // 1 minute between tickers
 
@@ -907,13 +911,13 @@ async function runAutoWarmup() {
 	}
 
 	logger.info({ fetched, failed }, 'Automatic cache warmup complete');
+	await setLastWarmupTime(stockCache.client);
 	} finally {
 		await releaseWarmupLock();
 	}
 }
 
 // Schedule warmup with random initial delay to prevent all workers/deploys hitting Yahoo simultaneously
-// Random delay between 3-10 days, then every 30 days after that
 const MIN_INITIAL_DELAY_MS = 3 * 24 * 60 * 60 * 1000;  // 3 days
 const MAX_INITIAL_DELAY_MS = 10 * 24 * 60 * 60 * 1000; // 10 days
 const randomInitialDelay = MIN_INITIAL_DELAY_MS + Math.random() * (MAX_INITIAL_DELAY_MS - MIN_INITIAL_DELAY_MS);
@@ -922,8 +926,7 @@ const initialDelayDays = (randomInitialDelay / (24 * 60 * 60 * 1000)).toFixed(2)
 logger.info({ initialDelayDays: `${initialDelayDays} days` }, 'Scheduling first cache warmup');
 
 setTimeout(() => {
-	runAutoWarmup();
-	setInterval(runAutoWarmup, WARMUP_INTERVAL_MS);
+	scheduleRecurringWarmup(runAutoWarmup, stockCache.client, WARMUP_TARGET_INTERVAL_MS, logger);
 }, randomInitialDelay);
 
 serve({
